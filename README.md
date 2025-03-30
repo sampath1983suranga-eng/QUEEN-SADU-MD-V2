@@ -51,7 +51,7 @@ Start by forking this repository to your own GitHub account. Click the button be
 </p>  
 
 
-🚀 Deploy KHAN-MD
+🚀 Deploy QUEEN-SADU-MD
 
 > Deploy on Heroku
 
@@ -69,9 +69,9 @@ Start by forking this repository to your own GitHub account. Click the button be
 <a href='https://host.talkdrove.com/share-bot/82' target="_blank"><img alt='Deploy on TaikDrove' src='https://img.shields.io/badge/Deploy%20on-TaikDrove-6971FF?style=for-the-badge&logo=google-cloud&logoColor=white'/></a>  
 </p>
 
-<img src="https://files.catbox.moe/fyhs0x.gif" alt="GIF Preview"> 
 
-
+   <img src="https://files.catbox.moe/b68wmz.gif" alt="GIF Preview">
+       
 
 
 <a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
