@@ -17,7 +17,7 @@ async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sen
     try {
         // Voice message first
         await conn.sendMessage(from, { 
-    audio: { url: 'https://github.com/mrdinesh595/Mssadu/raw/refs/heads/main/database/queensadumenu.mp3' }, 
+    audio: { url: 'https://files.catbox.moe/xb6ple.mp3' }, 
     mimetype: 'audio/mp4', 
     ptt: true,
     contextInfo: { 
