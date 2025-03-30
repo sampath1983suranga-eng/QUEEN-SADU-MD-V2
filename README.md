@@ -63,11 +63,13 @@ Start by forking this repository to your own GitHub account. Click the button be
 
 > Deploy on TaikDrove
 
-
+   <img src="https://files.catbox.moe/fyhs0x.gif" alt="GIF Preview">
 
 <p align="left">  
 <a href='https://host.talkdrove.com/share-bot/82' target="_blank"><img alt='Deploy on TaikDrove' src='https://img.shields.io/badge/Deploy%20on-TaikDrove-6971FF?style=for-the-badge&logo=google-cloud&logoColor=white'/></a>  
 </p>
+
+
 
 <a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
 <img src="https://i.imgur.com/dBaSKWF.gif" height="90" width="100%">
