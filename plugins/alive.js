@@ -13,8 +13,8 @@ cmd({
     try {
         // 🔹 Random Voice (PTT) URLs
         const voiceLinks = [
-            "https://github.com/mrdinesh595/Mssadu/raw/refs/heads/main/database/alive.mp3",
-            "https://github.com/mrdinesh595/Mssadu/raw/refs/heads/main/database/sadualive2.mp3"
+            "https://files.catbox.moe/46a55h.mp3",
+            "https://files.catbox.moe/fqb530.mp3"
         ];
         
         // 🔹 Select a Random Voice Clip
