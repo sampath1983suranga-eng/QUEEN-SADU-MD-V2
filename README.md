@@ -2,7 +2,7 @@
   </p>
   
 ---  
-<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=100&pause=1000&color=1BAFBAFF&center=true&width=1000&height=200&lines=QUEEN SADU +MD+BOT;MR+DINESH+OFC" alt="Typing SVG" /></a>
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=100&pause=1000&color=1BAFBAFF&center=true&width=1000&height=200&lines=QUEEN SADU +MD;MR+DINESH+OFC" alt="Typing SVG" /></a>
   </p>
 
 > **`Updated To` The Version 4.0**
@@ -20,6 +20,9 @@ QUEEN-SADU-MD BY MR DINESH OFC💜
 
 
 
+<h1>𝐐𝐔𝐄𝐄𝐍 𝐒𝐀𝐃𝐔-𝐌𝐃</h1>
+<a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
+<a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
 
 
 ### 1. Fork This Repository
