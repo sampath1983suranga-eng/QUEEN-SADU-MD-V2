@@ -31,7 +31,7 @@ cmd({
         }
 
         const gptResponse = response.data.result.prompt;
-        const ALIVE_IMG = 'https://i.imgur.com/R4ebueM.jpeg';
+        const ALIVE_IMG = 'https://i.postimg.cc/4y4Bxdc8/Picsart-25-02-08-23-56-16-217.jpg';
         const formattedInfo = `🤖 *ChatGPT පිළිතුර:*\n\n${gptResponse}`;
 
         // Generate Sinhala voice using gtts
