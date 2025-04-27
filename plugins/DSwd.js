@@ -1,64 +1,68 @@
 const { cmd } = require('../command');
-const fs = require('fs');
-const path = require('path');
+const axios = require('axios');  // API requests සඳහා
 const config = require('../config');
 
-// Active groups stored in a file
-const GROUPS_FILE = path.join(__dirname, '../active_wd_groups.json');
 let activeGroups = {};
+let lastNewsTitles = {};
 
-// Load active groups from file if exists
-if (fs.existsSync(GROUPS_FILE)) {
-    activeGroups = JSON.parse(fs.readFileSync(GROUPS_FILE));
-}
-
-// Facts with images
-const knowledgeFacts = [
-    {
-        text: "උතුරු ඩැකොටා කඳුවැටිය (Mount Rushmore) යනු ඇමරිකාවේ ජනාධිපති විරුවන්ගේ මූර්ති සිතුවමකි.",
-        image: "https://upload.wikimedia.org/wikipedia/commons/6/6d/Mount_Rushmore_National_Memorial.jpg"
-    },
-    {
-        text: "නියාගරා දියඇලි ලෝකයේ ප්‍රකටම දියඇලි වලින් එකක් වේ.",
-        image: "https://upload.wikimedia.org/wikipedia/commons/1/11/Niagara_Falls_from_Canada_at_sunset.jpg"
-    },
-    {
-        text: "අමසෝනියාව යනු ලෝකයේ විශාලතම වනාන්තරයයි.",
-        image: "https://upload.wikimedia.org/wikipedia/commons/e/e0/Amazon_rainforest.jpg"
-    },
-    {
-        text: "ග්‍රහ මාලාවේ විශාලතම කඳු යනු මාර්ස් ග්‍රහයේ Olympus Mons කඳු බවයි.",
-        image: "https://upload.wikimedia.org/wikipedia/commons/4/46/Olympus_Mons.jpg"
-    },
-    {
-        text: "අන්ටාර්ක්ටිකාව යනු ලෝකයේ සුදුම හා ශීතම භූමියයි.",
-        image: "https://upload.wikimedia.org/wikipedia/commons/5/58/Antarctica_iceberg.jpg"
-    },
+// Nature Images
+const natureImages = [
+    "https://images.unsplash.com/photo-1506748686213-8f06de1977bc",
+    "https://images.unsplash.com/photo-1501600679172-419ab5d125b3",
+    "https://images.unsplash.com/photo-1505639246480-bc63e42b23a4",
+    "https://images.unsplash.com/photo-1532386934691-81229263d933"
 ];
 
-function getRandomKnowledge() {
-    return knowledgeFacts[Math.floor(Math.random() * knowledgeFacts.length)];
+// API Call for English facts
+async function getRandomFact() {
+    try {
+        const response = await axios.get('https://uselessfacts.jsph.pl/random.json?language=en');
+        return response.data.text;
+    } catch (err) {
+        console.error(`Error fetching fact: ${err.message}`);
+        return null;
+    }
 }
 
-function saveActiveGroups() {
-    fs.writeFileSync(GROUPS_FILE, JSON.stringify(activeGroups, null, 2));
+// Translate English fact to Sinhala using LibreTranslate API
+async function translateToSinhala(text) {
+    try {
+        const response = await axios.post('https://translate.argosopentech.com/translate', {
+            q: text,
+            source: 'en',
+            target: 'si',
+            format: 'text'
+        });
+        return response.data.translatedText;
+    } catch (err) {
+        console.error(`Error translating fact: ${err.message}`);
+        return text;  // Return original text in case of error
+    }
 }
 
-async function postKnowledge(conn, groupId) {
-    const fact = getRandomKnowledge();
+async function sendFact(conn, groupId) {
+    const fact = await getRandomFact();
+    if (!fact) return;
+
+    const translatedFact = await translateToSinhala(fact);
+    const randomImage = natureImages[Math.floor(Math.random() * natureImages.length)];
+
+    const caption = `🔵 *දැනුමක්* 🌍\n\n${translatedFact}\n\n> *Powered by Mr. Dinesh*`;
+
     try {
         await conn.sendMessage(groupId, {
-            image: { url: fact.image },
-            caption: `*🌍 විශ්ව දැනුම!*\n\n${fact.text}\n\n> Powered by QUEEN-SADU-MD & D-XTRO-MD`
+            image: { url: randomImage },
+            caption: caption,
+            mimetype: "image/jpeg"
         });
-    } catch (e) {
-        console.error(`Failed to send knowledge fact: ${e.message}`);
+    } catch (err) {
+        console.error(`Failed to send fact with image: ${err.message}`);
     }
 }
 
 cmd({
     pattern: "startwd",
-    desc: "Activate World Knowledge facts updates",
+    desc: "Enable world/nature knowledge updates in this group",
     isGroup: true,
     react: "🌍",
     filename: __filename
@@ -71,21 +75,20 @@ cmd({
             if (isAdmin || isBotOwner) {
                 if (!activeGroups[from]) {
                     activeGroups[from] = true;
-                    saveActiveGroups();
 
-                    await conn.sendMessage(from, { text: "🌍 Auto World Knowledge Activated!" });
+                    await conn.sendMessage(from, { text: "🌍 Auto World/Nature Knowledge Updates Activated.\n\n> Powered by Mr. Dinesh" });
 
                     if (!activeGroups['interval']) {
                         activeGroups['interval'] = setInterval(async () => {
                             for (const groupId in activeGroups) {
                                 if (activeGroups[groupId] && groupId !== 'interval') {
-                                    await postKnowledge(conn, groupId);
+                                    await sendFact(conn, groupId);
                                 }
                             }
-                        }, 2 * 60 * 60 * 1000); // every 2 hours
+                        }, 3600000); // Send every 1 hour
                     }
                 } else {
-                    await conn.sendMessage(from, { text: "✅ World Knowledge updates already activated." });
+                    await conn.sendMessage(from, { text: "*✅ World/Nature Knowledge Updates Already Activated.*\n\n> Powered by Mr. Dinesh" });
                 }
             } else {
                 await conn.sendMessage(from, { text: "🚫 Only group admins or bot owner can use this command." });
@@ -95,13 +98,13 @@ cmd({
         }
     } catch (e) {
         console.error(`Error in startwd command: ${e.message}`);
-        await conn.sendMessage(from, { text: "Failed to activate World Knowledge service." });
+        await conn.sendMessage(from, { text: "Failed to activate knowledge service." });
     }
 });
 
 cmd({
     pattern: "stopwd",
-    desc: "Disable World Knowledge updates",
+    desc: "Disable world/nature knowledge updates in this group",
     isGroup: true,
     react: "🛑",
     filename: __filename
@@ -114,15 +117,14 @@ cmd({
             if (isAdmin || isBotOwner) {
                 if (activeGroups[from]) {
                     delete activeGroups[from];
-                    saveActiveGroups();
-                    await conn.sendMessage(from, { text: "🛑 World Knowledge updates disabled in this group." });
+                    await conn.sendMessage(from, { text: "*🛑 Knowledge updates disabled in this group*" });
 
                     if (Object.keys(activeGroups).length === 1 && activeGroups['interval']) {
                         clearInterval(activeGroups['interval']);
                         delete activeGroups['interval'];
                     }
                 } else {
-                    await conn.sendMessage(from, { text: "⚠️ World Knowledge updates not active in this group." });
+                    await conn.sendMessage(from, { text: "⚠️ Knowledge updates not active in this group." });
                 }
             } else {
                 await conn.sendMessage(from, { text: "🚫 Only group admins or bot owner can use this command." });
@@ -132,6 +134,6 @@ cmd({
         }
     } catch (e) {
         console.error(`Error in stopwd command: ${e.message}`);
-        await conn.sendMessage(from, { text: "Failed to deactivate World Knowledge service." });
+        await conn.sendMessage(from, { text: "Failed to deactivate knowledge service." });
     }
 });
