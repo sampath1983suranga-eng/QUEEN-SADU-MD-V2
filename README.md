@@ -89,16 +89,4 @@ Start by forking this repository to your own GitHub account. Click the button be
 
 
 
-
-<svg width="300" height="100" viewBox="0 0 300 100" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="light" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="transparent"/>
-      <stop offset="50%" stop-color="white" stop-opacity="0.5"/>
-      <stop offset="100%" stop-color="transparent"/>
-      <animate attributeName="y1" values="0;1;0" dur="2s" repeatCount="indefinite"/>
-      <animate attributeName="y2" values="1;2;1" dur="2s" repeatCount="indefinite"/>
-    </linearGradient>
-  </defs>
-  <rect width="300" height="100" fill="url(#light)"/>
-</svg>
+<img src="https://github.com/USERNAME/REPO_NAME/raw/main/assets/light.svg" width="300"/>
