@@ -88,9 +88,6 @@ Start by forking this repository to your own GitHub account. Click the button be
 <img src="https://i.imgur.com/dBaSKWF.gif" height="90" width="100%">
 
 
-<a href="https://git.io/typing-svg">
-  <img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=100&pause=1000&color=FFD700&center=true&width=1000&height=200&lines=QUEEN-SADU-%2BMD;ඔබ‍ට ස්තුතියි" alt="Typing SVG" />
-</a>
-
+<img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=100&pause=1000&color=DAA520&center=true&width=1000&height=200&lines=QUEEN-SADU%2BMD;අප වෙත+එක්වවාට+ඔබ‍ට ස්තුතියි" />
 
 ##                  *˙·٠•● © 𝐌𝐫 𝐝𝐢𝐧𝐞𝐬𝐡 𝐨𝐟𝐜 ●•٠·˙*
