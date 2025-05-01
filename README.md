@@ -87,6 +87,37 @@ Start by forking this repository to your own GitHub account. Click the button be
 <a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
 <img src="https://i.imgur.com/dBaSKWF.gif" height="90" width="100%">
 
+<svg width="100%" height="60" viewBox="0 0 600 60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="50%" stop-color="#FFA500"/>
+      <stop offset="100%" stop-color="#FFD700"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="white" stop-opacity="0"/>
+      <stop offset="50%" stop-color="white" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+      <animateTransform attributeName="gradientTransform" type="translate" from="-1 0" to="1 0" dur="2s" repeatCount="indefinite" />
+    </linearGradient>
+    <mask id="shineMask">
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+            font-family="Arial Black, sans-serif" font-size="28" fill="white">
+        THANK YOU WATCH MY REPO
+      </text>
+    </mask>
+  </defs>
+
+  <!-- Base Gold Text -->
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+        font-family="Arial Black, sans-serif" font-size="28" fill="url(#gold)">
+    THANK YOU WATCH MY REPO
+  </text>
+
+  <!-- Shine Effect -->
+  <rect width="100%" height="100%" fill="url(#shine)" mask="url(#shineMask)" />
+</svg>
+
 
 
 ##                  *˙·٠•● © 𝐌𝐫 𝐝𝐢𝐧𝐞𝐬𝐡 𝐨𝐟𝐜 ●•٠·˙*
