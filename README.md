@@ -78,7 +78,7 @@ Start by forking this repository to your own GitHub account. Click the button be
 <img src="https://i.imgur.com/dBaSKWF.gif" height="90" width="100%">
 <a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
 <img src="https://i.imgur.com/dBaSKWF.gif" height="90" width="100%">
-<a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
+<a><img src='https://i.imgur.com/Ly Hic3i.gif'/></a>
 <img src="https://i.imgur.com/dBaSKWF.gif" height="90" width="100%">
 <a><img src='https://i.imgur.com/LyHic3i.gif'/></a>
 <img src="https://i.imgur.com/dBaSKWF.gif" height="90" width="100%">
@@ -89,4 +89,4 @@ Start by forking this repository to your own GitHub account. Click the button be
 
 
 
-<img src="https://github.com/MRDofc/QUEEN-SADU-MD-V2/raw/main/assets/light.svg" width="300"/>
+##                  *˙·٠•● © 𝐌𝐫 𝐝𝐢𝐧𝐞𝐬𝐡 𝐨𝐟𝐜 ●•٠·˙*
