@@ -89,4 +89,4 @@ Start by forking this repository to your own GitHub account. Click the button be
 
 
 
-<img src="https://github.com/USERNAME/REPO_NAME/raw/main/assets/light.svg" width="300"/>
+<img src="https://github.com/MRDofc/QUEEN-SADU-MD-V2/raw/main/assets/light.svg" width="300"/>
