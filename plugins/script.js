@@ -16,7 +16,7 @@ let repo =`
 *|* *MR DINESH*
 
 > *QUEEN SADU_MD REPO:*
-*|* *https://github.com/mrdinesh595/QUEEN-SADU-MD*
+*|* *https://github.com/MRDofc/QUEEN-SADU-MD-V2*
 
 > *SUPPORT CHENNAL:*
 *|* *https://whatsapp.com/channel/0029Vb0Anqe9RZAcEYc2fT2c*
