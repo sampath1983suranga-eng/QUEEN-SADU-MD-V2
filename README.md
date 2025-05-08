@@ -2,9 +2,9 @@
   </p>
   
 ---  
-<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Black+Ops+One&size=100&pause=1000&color=1BAFBAFF&center=true&width=1000&height=200&lines=QUEEN SADU +MD;MR+DINESH+OFC" alt="Typing SVG" /></a>
-  </p>
-
+<p align="center">
+<a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.demolab.com?font=Rubik+Dirt&size=65&pause=1000&color=00FF00&background=FF20A500&center=true&vCenter=true&width=1000&height=150&lines=QUEEN-SADU-MD+V2;MR+DINESH OFC;THANKS+FOR;REQVEST" alt="Typing SVG" /></a>
+</p>
 > **`Updated To` The Version 4.0**
 ---
 
