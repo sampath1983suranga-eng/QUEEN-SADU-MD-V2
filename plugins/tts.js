@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 cmd({
-    pattern: "tts ?(.*)",
+    pattern: "tts",
     desc: "Convert Sinhala text to speech",
     react: "🗣️",
     filename: __filename
