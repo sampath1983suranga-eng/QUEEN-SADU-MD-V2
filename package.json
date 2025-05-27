@@ -52,6 +52,6 @@
     "mrnima-moviedl":"1.0.0",
     "os":"0.1.2",
     "hirunews-scrap":"1.1.4",
-    "sl-code-lords/esana-news":"1.1.0"
+    "@sl-code-lords/esana-news":"1.1.0"
   }
 }
