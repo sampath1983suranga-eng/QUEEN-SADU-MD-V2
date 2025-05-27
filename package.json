@@ -26,7 +26,7 @@
     "fs": "^0.0.1-security",
     "ffmpeg": "^0.0.4",
     "file-type": "^16.5.3",
-    "fluent-ffmpeg": "^2.1.27",
+    "fluent-ffmpeg": "^2.1.2",
     "form-data": "^4.0.2",
     "google-tts-api": "^2.0.2",
     "path": "^0.12.7",
