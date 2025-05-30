@@ -1,11 +1,11 @@
 const { cmd } = require('../command');
 const axios = require('axios');
 
-const JATAKA_JSON_URL = 'https://raw.githubusercontent.com/MRDofc/jataka/main/jataka_complete.json';
+const JATAKA_JSON_URL = 'https://raw.githubusercontent.com/MRDofc/QUEEN-SADU-MD-V2/main/data/jataka_complete.json';
 
 let jatakaData = null;
 
-// Function to fetch and cache JSON
+// Fetch and cache JSON
 async function loadJatakaData() {
     if (!jatakaData) {
         const res = await axios.get(JATAKA_JSON_URL);
@@ -14,10 +14,9 @@ async function loadJatakaData() {
     return jatakaData;
 }
 
-// Command handler
 cmd({
     pattern: "jataka ?(.*)",
-    desc: "ඔබට අවශ්‍ය ජාතක කතාව (අංකය අනුව)",
+    desc: "අංකය අනුව ජාතක කතාවක් ලබාගන්න",
     category: "Buddhism",
     filename: __filename
 }, async (conn, m, msg, { input }) => {
@@ -25,7 +24,7 @@ cmd({
 
     if (!jatakaNumber || isNaN(jatakaNumber)) {
         return await conn.sendMessage(msg.from, {
-            text: `❗ කරුණාකර ජාතක අංකයක් ඇතුළත් කරන්න.\n\nඋදාහරණයක්:\n*jataka 1*`
+            text: `📌 කරුණාකර ජාතක අංකයක් දෙන්න.\nඋදා: *jataka 25*`
         });
     }
 
@@ -34,11 +33,11 @@ cmd({
 
     if (!jataka) {
         return await conn.sendMessage(msg.from, {
-            text: `❌ අංක ${jatakaNumber} සඳහා ජාතකයක් හමු නොවීය.`
+            text: `😕 අංක ${jatakaNumber} සඳහා ජාතකයක් නොමැත.`
         });
     }
 
-    const responseText = `📜 *ජාතක කථාව - අංක ${jatakaNumber}*\n\n*🪷 ${jataka.title}*\n\n${jataka.story.substring(0, 4000)}${jataka.story.length > 4000 ? '\n\n...(ඉතුරු කොටස කපලා දැම්මා)' : ''}`;
+    const responseText = `📜 *ජාතක කථාව - අංක ${jatakaNumber}*\n\n*🪷 ${jataka.title}*\n\n${jataka.story.substring(0, 4000)}${jataka.story.length > 4000 ? '\n\n...(කතාව දිගයි)' : ''}`;
 
     await conn.sendMessage(msg.from, {
         text: responseText
