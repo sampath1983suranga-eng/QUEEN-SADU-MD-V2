@@ -5,11 +5,14 @@ const JATAKA_JSON_URL = 'https://raw.githubusercontent.com/MRDofc/QUEEN-SADU-MD-
 
 let jatakaData = null;
 
-// Fetch and cache JSON
 async function loadJatakaData() {
     if (!jatakaData) {
-        const res = await axios.get(JATAKA_JSON_URL);
-        jatakaData = res.data;
+        try {
+            const res = await axios.get(JATAKA_JSON_URL);
+            jatakaData = res.data;
+        } catch (err) {
+            console.error("📛 Error loading Jataka data:", err.message);
+        }
     }
     return jatakaData;
 }
@@ -29,8 +32,13 @@ cmd({
     }
 
     const data = await loadJatakaData();
-    const jataka = data[jatakaNumber];
+    if (!data) {
+        return await conn.sendMessage(msg.from, {
+            text: "⚠️ ජාතක දත්ත ලබාගැනීමට නොහැක. අන්තර්ජාල සම්බන්ධතාවය පරීක්ෂා කරන්න."
+        });
+    }
 
+    const jataka = data[jatakaNumber];
     if (!jataka) {
         return await conn.sendMessage(msg.from, {
             text: `😕 අංක ${jatakaNumber} සඳහා ජාතකයක් නොමැත.`
