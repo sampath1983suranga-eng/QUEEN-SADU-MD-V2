@@ -1,47 +1,51 @@
 const { cmd } = require('../command');
 const Parser = require('rss-parser');
-const parser = new Parser();
-const newsIntervalMap = {}; // to store intervals per chat
-const sentArticlesMap = {}; // to avoid duplicates
 const config = require('../config');
+const parser = new Parser({
+    customFields: {
+        item: ['enclosure']
+    }
+});
 
-const getLatestNews = async () => {
+const newsIntervalMap = {}; // Store intervals per chat
+const sentArticlesMap = {};
+
+const getSinhalaNews = async () => {
     const feed = await parser.parseURL('https://www.adaderana.lk/rss.php');
     return feed.items;
 };
 
-const formatArticle = (article) => {
+const formatAdaDeranaArticle = (article) => {
     return {
         caption: `
-📰 *${article.title}*
-🕒 ${article.pubDate}
+📰 *${article.title.trim()}*
+🕒 _${article.pubDate}_
 🔗 _${article.link}_
 
-> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍʀ ᴅɪɴᴇꜱʜ ᴏꜰᴄ`,
-        image: article.enclosure?.url || null // Some feeds contain images
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ delta ᴛᴇᴄʜ`,
+        image: article.enclosure?.url || null
     };
 };
 
 cmd({
     pattern: "startnews",
-    desc: "Start auto Sinhala news updates.",
+    desc: "Start Sinhala news auto updates every 15 min.",
     category: "news",
     react: "🟢",
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-    if (newsIntervalMap[from]) {
-        return reply("🟢 Auto-news updates already running.");
-    }
+    if (newsIntervalMap[from]) return reply("🟢 Auto-news already running.");
 
-    reply("📰 Sinhala news updates started every 30 minutes.");
+    reply("✅ Sinhala news auto updates started. You'll receive updates every 15 minutes.");
 
     newsIntervalMap[from] = setInterval(async () => {
         try {
-            const articles = await getLatestNews();
+            const articles = await getSinhalaNews();
             for (const article of articles.slice(0, 3)) {
                 if (sentArticlesMap[from]?.includes(article.link)) continue;
 
-                const { caption, image } = formatArticle(article);
+                const { caption, image } = formatAdaDeranaArticle(article);
+
                 if (!sentArticlesMap[from]) sentArticlesMap[from] = [];
                 sentArticlesMap[from].push(article.link);
 
@@ -52,37 +56,38 @@ cmd({
                 }
             }
         } catch (err) {
-            console.error("News fetch error:", err);
-            await conn.sendMessage(from, { text: "❌ පුවත් ලබා ගැනීමේදී දෝෂයක්." });
+            console.error("Auto news error:", err);
+            await conn.sendMessage(from, { text: "❌ පුවත් auto-fetch කිරීමේ දෝෂයක්." });
         }
-    }, 30 * 60 * 1000); // Every 30 minutes
+    }, 15 * 60 * 1000); // 15 minutes
 });
 
 cmd({
     pattern: "stopnews",
-    desc: "Stop auto Sinhala news updates.",
+    desc: "Stop Sinhala news auto updates.",
     category: "news",
     react: "🔴",
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-    if (!newsIntervalMap[from]) return reply("🔴 Auto-news updates are not active.");
+    if (!newsIntervalMap[from]) return reply("🔴 Auto-news updates not active.");
+
     clearInterval(newsIntervalMap[from]);
     delete newsIntervalMap[from];
     delete sentArticlesMap[from];
-    reply("🛑 Sinhala news updates stopped.");
+    reply("🛑 Sinhala news auto updates stopped.");
 });
 
 cmd({
     pattern: "getnews",
-    desc: "Get the latest Sinhala news now.",
+    desc: "Get the latest Sinhala news.",
     category: "news",
     react: "📰",
     filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
     try {
-        const articles = await getLatestNews();
+        const articles = await getSinhalaNews();
         const article = articles[0]; // Latest one
-        const { caption, image } = formatArticle(article);
+        const { caption, image } = formatAdaDeranaArticle(article);
 
         if (image) {
             await conn.sendMessage(from, { image: { url: image }, caption });
@@ -90,7 +95,7 @@ cmd({
             await conn.sendMessage(from, { text: caption });
         }
     } catch (err) {
-        console.error("Error fetching latest news:", err);
+        console.error("Error in getnews:", err);
         reply("❌ පුවත් ලබා ගැනීමේදී දෝෂයක්.");
     }
 });
