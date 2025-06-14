@@ -2,100 +2,88 @@ const { cmd } = require('../command');
 const Parser = require('rss-parser');
 const config = require('../config');
 const parser = new Parser({
-    customFields: {
-        item: ['enclosure']
-    }
+  customFields: {
+    item: ['media:content', 'enclosure']
+  }
 });
 
-const newsIntervalMap = {}; // Store intervals per chat
-const sentArticlesMap = {};
+const newsIntervals = {};
+const sentLinks = {};
 
-const getSinhalaNews = async () => {
-    const feed = await parser.parseURL('https://www.adaderana.lk/rss.php');
-    return feed.items;
-};
+async function fetchNews() {
+  const feed = await parser.parseURL('http://lankadeepa.lk/index.php/maincontroller/breakingnews_rss');
+  return feed.items;
+}
 
-const formatAdaDeranaArticle = (article) => {
-    return {
-        caption: `
+function format(article) {
+  const image = article.enclosure?.url
+    || (article['media:content']?.url)
+    || null;
+  return {
+    caption: `
 📰 *${article.title.trim()}*
 🕒 _${article.pubDate}_
-🔗 _${article.link}_
-
-> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍʀ ᴅɪɴᴇꜱʜ ᴏꜰc`,
-        image: article.enclosure?.url || null
-    };
-};
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ delta ᴛᴇᴄʜ`,
+    image
+  };
+}
 
 cmd({
-    pattern: "startnews",
-    desc: "Start Sinhala news auto updates every 15 min.",
-    category: "news",
-    react: "🟢",
-    filename: __filename
+  pattern: "startnews",
+  desc: "Start Sinhala Lankadeepa updates every 15m",
+  category: "news",
+  react: "🟢",
+  filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-    if (newsIntervalMap[from]) return reply("🟢 Auto-news already running.");
-
-    reply("✅ Sinhala news auto updates started. You'll receive updates every 15 minutes.");
-
-    newsIntervalMap[from] = setInterval(async () => {
-        try {
-            const articles = await getSinhalaNews();
-            for (const article of articles.slice(0, 3)) {
-                if (sentArticlesMap[from]?.includes(article.link)) continue;
-
-                const { caption, image } = formatAdaDeranaArticle(article);
-
-                if (!sentArticlesMap[from]) sentArticlesMap[from] = [];
-                sentArticlesMap[from].push(article.link);
-
-                if (image) {
-                    await conn.sendMessage(from, { image: { url: image }, caption });
-                } else {
-                    await conn.sendMessage(from, { text: caption });
-                }
-            }
-        } catch (err) {
-            console.error("Auto news error:", err);
-            await conn.sendMessage(from, { text: "❌ පුවත් auto-fetch කිරීමේ දෝෂයක්." });
-        }
-    }, 15 * 60 * 1000); // 15 minutes
-});
-
-cmd({
-    pattern: "stopnews",
-    desc: "Stop Sinhala news auto updates.",
-    category: "news",
-    react: "🔴",
-    filename: __filename
-}, async (conn, mek, m, { from, reply }) => {
-    if (!newsIntervalMap[from]) return reply("🔴 Auto-news updates not active.");
-
-    clearInterval(newsIntervalMap[from]);
-    delete newsIntervalMap[from];
-    delete sentArticlesMap[from];
-    reply("🛑 Sinhala news auto updates stopped.");
-});
-
-cmd({
-    pattern: "getnews",
-    desc: "Get the latest Sinhala news.",
-    category: "news",
-    react: "📰",
-    filename: __filename
-}, async (conn, mek, m, { from, reply }) => {
+  if (newsIntervals[from]) return reply("🟢 Already running.");
+  reply("✅ Started Sinhala Lankadeepa news every 15 minutes.");
+  newsIntervals[from] = setInterval(async () => {
     try {
-        const articles = await getSinhalaNews();
-        const article = articles[0]; // Latest one
-        const { caption, image } = formatAdaDeranaArticle(article);
-
-        if (image) {
-            await conn.sendMessage(from, { image: { url: image }, caption });
-        } else {
-            await conn.sendMessage(from, { text: caption });
-        }
-    } catch (err) {
-        console.error("Error in getnews:", err);
-        reply("❌ පුවත් ලබා ගැනීමේදී දෝෂයක්.");
+      const items = await fetchNews();
+      for (let art of items.slice(0, 3)) {
+        if (sentLinks[from]?.includes(art.link)) continue;
+        const {caption, image} = format(art);
+        sentLinks[from] = sentLinks[from] || [];
+        sentLinks[from].push(art.link);
+        if (image) await conn.sendMessage(from, { image:{url:image}, caption });
+        else await conn.sendMessage(from, { text: caption });
+      }
+    } catch (e) {
+      console.error(e);
+      await conn.sendMessage(from, { text: "❌ Auto Sinhala news error." });
     }
+  }, 15*60*1000);
+});
+
+cmd({
+  pattern: "stopnews",
+  desc: "Stop Lankadeepa Sinhala updates",
+  category: "news",
+  react: "🔴",
+  filename: __filename
+}, (conn, mek, m, { from, reply }) => {
+  if (!newsIntervals[from]) return reply("🔴 Not running.");
+  clearInterval(newsIntervals[from]);
+  delete newsIntervals[from];
+  delete sentLinks[from];
+  reply("🛑 Stopped Sinhala news updates.");
+});
+
+cmd({
+  pattern: "getnews",
+  desc: "Get latest Sinhala Lankadeepa news now",
+  category: "news",
+  react: "📰",
+  filename: __filename
+}, async (conn, mek, m, { from, reply }) => {
+  try {
+    const items = await fetchNews();
+    const art = items[0];
+    const {caption, image} = format(art);
+    if (image) await conn.sendMessage(from, { image:{url:image}, caption });
+    else await conn.sendMessage(from, { text: caption });
+  } catch (e) {
+    console.error(e);
+    reply("❌ Error fetching Sinhala news.");
+  }
 });
