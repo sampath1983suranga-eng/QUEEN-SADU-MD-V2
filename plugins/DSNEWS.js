@@ -1,7 +1,9 @@
+const { cmd } = require('../command');
 const Parser = require('rss-parser');
 const parser = new Parser();
 const newsIntervalMap = {}; // to store intervals per chat
 const sentArticlesMap = {}; // to avoid duplicates
+const config = require('../config');
 
 const getLatestNews = async () => {
     const feed = await parser.parseURL('https://www.adaderana.lk/rss.php');
