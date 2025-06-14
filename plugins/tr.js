@@ -1,5 +1,5 @@
 const { cmd } = require('../command');
-const translate = require('google-translate-api-x'); // unofficial free API
+const translate = require('@vitalets/google-translate-api'); // stable free version
 
 // English ➜ Sinhala
 cmd({
@@ -19,7 +19,7 @@ cmd({
     } catch (e) {
         console.error("Translate Error:", e);
         await react("❌");
-        return reply("පරිවර්තනය කිරීම අසාර්ථකයි.");
+        return reply("පරිවර්තනය අසාර්ථකයි.");
     }
 });
 
