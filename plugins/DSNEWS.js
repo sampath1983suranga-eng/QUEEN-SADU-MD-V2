@@ -22,7 +22,7 @@ const formatAdaDeranaArticle = (article) => {
 🕒 _${article.pubDate}_
 🔗 _${article.link}_
 
-> ᴘᴏᴡᴇʀᴇᴅ ʙʏ delta ᴛᴇᴄʜ`,
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍʀ ᴅɪɴᴇꜱʜ ᴏꜰc`,
         image: article.enclosure?.url || null
     };
 };
