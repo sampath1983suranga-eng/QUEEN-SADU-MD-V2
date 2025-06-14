@@ -1,8 +1,12 @@
- const { cmd } = require('../command'); const Hiru = require('hirunews-scrap'); const Esana = require('@sl-code-lords/esana-news'); const config = require('../config');
+ const { cmd } = require('../command'); 
+const Hiru = require('hirunews-scrap'); 
+const Esana = require('@sl-code-lords/esana-news');
+const config = require('../config');
 
 let activeGroups = {}; let lastNewsTitles = {};
 
-const gifStyleVideos = [ "https://files.catbox.moe/405y67.mp4", "https://files.catbox.moe/eslg4p.mp4" ];
+const gifStyleVideos = [ "https://files.catbox.moe/405y67.mp4", 
+                        "https://files.catbox.moe/eslg4p.mp4" ];
 
 function getRandomGifVideo() { return gifStyleVideos[Math.floor(Math.random() * gifStyleVideos.length)]; }
 
@@ -66,7 +70,10 @@ latestNews.forEach(async (newsItem) => {
 
 }
 
-cmd({ pattern: "startnews", desc: "Enable Sri Lankan news updates in this group", isGroup: true, react: "📰", filename: __filename }, async (conn, mek, m, { from, isGroup, participants }) => { try { if (isGroup) { const isAdmin = participants.some(p => p.id === mek.sender && p.admin); const isBotOwner = mek.sender === conn.user.jid;
+cmd({ pattern: "startnews", 
+     desc: "Enable Sri Lankan news updates in this group", 
+     isGroup: true, react: "📰", filename: __filename },
+    async (conn, mek, m, { from, isGroup, participants }) => { try { if (isGroup) { const isAdmin = participants.some(p => p.id === mek.sender && p.admin); const isBotOwner = mek.sender === conn.user.jid;
 
 if (isAdmin || isBotOwner) {
             if (!activeGroups[from]) {
