@@ -3,83 +3,83 @@ const Parser = require('rss-parser');
 const config = require('../config');
 const parser = new Parser({
   customFields: {
-    item: ['media:content', 'enclosure']
+    item: ['enclosure', 'media:content']
   }
 });
 
-const newsIntervals = {};
-const sentLinks = {};
+const intervals = {};
+const sent = {};
 
-async function fetchNews() {
-  const feed = await parser.parseURL('http://lankadeepa.lk/index.php/maincontroller/breakingnews_rss');
+async function fetchFeed() {
+  const feed = await parser.parseURL('https://www.lankadeepa.lk/rss');
   return feed.items;
 }
 
-function format(article) {
-  const image = article.enclosure?.url
-    || (article['media:content']?.url)
+function format(item) {
+  const image = item.enclosure?.url
+    || item['media:content']?.url
     || null;
   return {
     caption: `
-📰 *${article.title.trim()}*
-🕒 _${article.pubDate}_
-> ᴘᴏᴡᴇʀᴇᴅ ʙʏ delta ᴛᴇᴄʜ`,
+📰 *${item.title.trim()}*
+🕒 _${item.pubDate}_
+> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍʀ ᴅɪɴᴇꜱʜ ᴏꜰᴄ`,
     image
   };
 }
 
 cmd({
   pattern: "startnews",
-  desc: "Start Sinhala Lankadeepa updates every 15m",
+  desc: "Start Sinhala news every 15 min.",
   category: "news",
   react: "🟢",
   filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
-  if (newsIntervals[from]) return reply("🟢 Already running.");
-  reply("✅ Started Sinhala Lankadeepa news every 15 minutes.");
-  newsIntervals[from] = setInterval(async () => {
+  if (intervals[from]) return reply("🟢 Already running.");
+  reply("✅ Sinhala news auto-updates every 15 minutes.");
+  intervals[from] = setInterval(async () => {
     try {
-      const items = await fetchNews();
-      for (let art of items.slice(0, 3)) {
-        if (sentLinks[from]?.includes(art.link)) continue;
-        const {caption, image} = format(art);
-        sentLinks[from] = sentLinks[from] || [];
-        sentLinks[from].push(art.link);
+      const items = await fetchFeed();
+      for (let item of items.slice(0, 3)) {
+        if (sent[from]?.includes(item.link)) continue;
+        const { caption, image } = format(item);
+        sent[from] = sent[from] || [];
+        sent[from].push(item.link);
         if (image) await conn.sendMessage(from, { image:{url:image}, caption });
         else await conn.sendMessage(from, { text: caption });
       }
     } catch (e) {
       console.error(e);
-      await conn.sendMessage(from, { text: "❌ Auto Sinhala news error." });
+      await conn.sendMessage(from, { text: "❌ Sinhala news fetch error." });
     }
-  }, 15*60*1000);
+  }, 15 * 60 * 1000);
 });
 
 cmd({
   pattern: "stopnews",
-  desc: "Stop Lankadeepa Sinhala updates",
+  desc: "Stop Sinhala news updates.",
   category: "news",
   react: "🔴",
   filename: __filename
 }, (conn, mek, m, { from, reply }) => {
-  if (!newsIntervals[from]) return reply("🔴 Not running.");
-  clearInterval(newsIntervals[from]);
-  delete newsIntervals[from];
-  delete sentLinks[from];
-  reply("🛑 Stopped Sinhala news updates.");
+  if (!intervals[from]) return reply("🔴 Not running.");
+  clearInterval(intervals[from]);
+  delete intervals[from];
+  delete sent[from];
+  reply("🛑 Sinhala news updates stopped.");
 });
 
 cmd({
   pattern: "getnews",
-  desc: "Get latest Sinhala Lankadeepa news now",
+  desc: "Get latest Sinhala news now.",
   category: "news",
   react: "📰",
   filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
   try {
-    const items = await fetchNews();
-    const art = items[0];
-    const {caption, image} = format(art);
+    const items = await fetchFeed();
+    const item = items[0];
+    const { caption, image } = format(item);
     if (image) await conn.sendMessage(from, { image:{url:image}, caption });
     else await conn.sendMessage(from, { text: caption });
   } catch (e) {
