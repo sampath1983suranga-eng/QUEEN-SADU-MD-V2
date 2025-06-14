@@ -1,79 +1,89 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-const { cmd } = require("../command");
+const { cmd } = require('../command');
+const axios = require('axios');
 
 cmd({
-    pattern: "gpt",
-    alias: "ai",
-    desc: "Interact with ChatGPT and get Sinhala voice response.",
+    pattern: "ai",
+    alias: ["bot"],
+    desc: "Chat with an AI model",
     category: "ai",
     react: "🤖",
-    use: "<your query>",
-    filename: __filename,
-}, async (conn, mek, m, { from, args, q, reply }) => {
+    filename: __filename
+},
+async (conn, mek, m, { from, args, q, reply, react }) => {
     try {
-        if (!q) return reply("⚠️ කරුණාකර ChatGPT සඳහා ප්‍රශ්නයක් ලබා දෙන්න.\n\nඋදාහරණයක්:\n.gpt AI කියන්නේ මොකද්ද?");
+        if (!q) return reply("Please provide a message for the AI.\nExample: `.ai Hello`");
 
-        const text = q;
-        const encodedText = encodeURIComponent(text);
-        const url = `https://api.dreaded.site/api/chatgpt?text=${encodedText}`;
+        const apiUrl = `https://lance-frank-asta.onrender.com/api/gpt?q=${encodeURIComponent(q)}`;
+        const { data } = await axios.get(apiUrl);
 
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0',
-                'Accept': 'application/json',
-            }
-        });
-
-        if (!response?.data?.result?.prompt) {
-            return reply("❌ GPT API වෙතින් ප්‍රතිචාරයක් ලැබුණේ නැහැ.");
+        if (!data || !data.message) {
+            await react("❌");
+            return reply("AI failed to respond. Please try again later.");
         }
 
-        const gptResponse = response.data.result.prompt;
-        const ALIVE_IMG = 'https://i.postimg.cc/4y4Bxdc8/Picsart-25-02-08-23-56-16-217.jpg';
-        const formattedInfo = `🤖 *ChatGPT පිළිතුර:*\n\n${gptResponse}`;
+        await reply(`🤖 *AI Response:*\n\n${data.message}`);
+        await react("✅");
+    } catch (e) {
+        console.error("Error in AI command:", e);
+        await react("❌");
+        reply("An error occurred while communicating with the AI.");
+    }
+});
 
-        // Generate Sinhala voice using gtts
-        const gttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=si&client=tw-ob&q=${encodeURIComponent(gptResponse)}`;
-        const voicePath = path.join(__dirname, "gpt_voice.mp3");
-        const voiceWriter = fs.createWriteStream(voicePath);
+cmd({
+    pattern: "openai",
+    alias: ["chatgpt", "gpt3"],
+    desc: "Chat with OpenAI",
+    category: "ai",
+    react: "🧠",
+    filename: __filename
+},
+async (conn, mek, m, { from, args, q, reply, react }) => {
+    try {
+        if (!q) return reply("Please provide a message for OpenAI.\nExample: `.openai Hello`");
 
-        const voiceRes = await axios({
-            method: 'get',
-            url: gttsUrl,
-            responseType: 'stream'
-        });
+        const apiUrl = `https://vapis.my.id/api/openai?q=${encodeURIComponent(q)}`;
+        const { data } = await axios.get(apiUrl);
 
-        await new Promise((resolve, reject) => {
-            voiceRes.data.pipe(voiceWriter);
-            voiceWriter.on('finish', resolve);
-            voiceWriter.on('error', reject);
-        });
+        if (!data || !data.result) {
+            await react("❌");
+            return reply("OpenAI failed to respond. Please try again later.");
+        }
 
-        // Send both image + voice
-        await conn.sendMessage(from, {
-            image: { url: ALIVE_IMG },
-            caption: formattedInfo,
-            contextInfo: {
-                mentionedJid: [m.sender],
-                forwardingScore: 999,
-                isForwarded: true
-            }
-        }, { quoted: mek });
+        await reply(`🧠 *OpenAI Response:*\n\n${data.result}`);
+        await react("✅");
+    } catch (e) {
+        console.error("Error in OpenAI command:", e);
+        await react("❌");
+        reply("An error occurred while communicating with OpenAI.");
+    }
+});
 
-        await conn.sendMessage(from, {
-            audio: fs.readFileSync(voicePath),
-            mimetype: 'audio/mp4',
-            ptt: true
-        }, { quoted: mek });
+cmd({
+    pattern: "deepseek",
+    alias: ["deep", "seekai"],
+    desc: "Chat with DeepSeek AI",
+    category: "ai",
+    react: "🧠",
+    filename: __filename
+},
+async (conn, mek, m, { from, args, q, reply, react }) => {
+    try {
+        if (!q) return reply("Please provide a message for DeepSeek AI.\nExample: `.deepseek Hello`");
 
-        // Clean up
-        fs.unlinkSync(voicePath);
+        const apiUrl = `https://api.ryzendesu.vip/api/ai/deepseek?text=${encodeURIComponent(q)}`;
+        const { data } = await axios.get(apiUrl);
 
-    } catch (error) {
-        console.error("GPT Command Error:", error);
-        const errMsg = error?.message || "Unknown error occurred.";
-        return reply(`❌ දෝෂයක් සිදුවී ඇත:\n\n${errMsg}`);
+        if (!data || !data.answer) {
+            await react("❌");
+            return reply("DeepSeek AI failed to respond. Please try again later.");
+        }
+
+        await reply(`🧠 *DeepSeek AI Response:*\n\n${data.answer}`);
+        await react("✅");
+    } catch (e) {
+        console.error("Error in DeepSeek AI command:", e);
+        await react("❌");
+        reply("An error occurred while communicating with DeepSeek AI.");
     }
 });
