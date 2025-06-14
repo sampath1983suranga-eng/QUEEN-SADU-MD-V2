@@ -3,22 +3,25 @@ const Parser = require('rss-parser');
 const config = require('../config');
 const parser = new Parser({
   customFields: {
-    item: ['enclosure']
+    item: ['enclosure', 'media:content']
   }
 });
 
 const intervals = {};
-const sentLinks = {};
+const sent = {};
 
-// ✅ Sinhala Ada Derana feed
+// 📰 Sinhala Dinamina RSS fetch
 async function fetchNews() {
-  const feed = await parser.parseURL('https://sinhala.adaderana.lk/rss.php');
+  const feed = await parser.parseURL('https://www.dinamina.lk/feed');
   return feed.items;
 }
 
-// 🧾 Format Sinhala news with optional image
+// 🏷 Format Sinhala news with optional image
 function format(item) {
-  const image = item.enclosure?.url || null;
+  const image = item.enclosure?.url
+    || item['media:content']?.url
+    || null;
+
   return {
     caption: `
 📰 *${item.title.trim()}*
@@ -28,38 +31,37 @@ function format(item) {
   };
 }
 
-// ▶️ Start auto updates
+// ▶️ startnews — auto every 15 min
 cmd({
   pattern: "startnews",
-  desc: "Start Sinhala news updates every 15 min",
+  desc: "Start Sinhala Dinamina news every 15m",
   category: "news",
   react: "🟢",
   filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
   if (intervals[from]) return reply("🟢 Sinhala news already running.");
-  reply("✅ Started Sinhala Ada Derana news (every 15 minutes).");
+  reply("✅ Sinhala Dinamina auto-updates started (15min).");
+
   intervals[from] = setInterval(async () => {
     try {
       const items = await fetchNews();
       for (let item of items.slice(0, 3)) {
-        if (sentLinks[from]?.includes(item.link)) continue;
+        if (sent[from]?.includes(item.link)) continue;
         const { caption, image } = format(item);
-        sentLinks[from] = sentLinks[from] || [];
-        sentLinks[from].push(item.link);
-        if (image) {
-          await conn.sendMessage(from, { image: { url: image }, caption });
-        } else {
-          await conn.sendMessage(from, { text: caption });
-        }
+        sent[from] = sent[from] || [];
+        sent[from].push(item.link);
+
+        if (image) await conn.sendMessage(from, { image: { url: image }, caption });
+        else await conn.sendMessage(from, { text: caption });
       }
     } catch (e) {
       console.error("Auto fetch error:", e);
-      await conn.sendMessage(from, { text: "❌ Error fetching Sinhala news." });
+      await conn.sendMessage(from, { text: "❌ Sinhala news fetch error." });
     }
-  }, 15 * 60 * 1000); // 15 minutes
+  }, 15 * 60 * 1000);
 });
 
-// ⏹ Stop auto news
+// ⏹ stopnews — cancel auto
 cmd({
   pattern: "stopnews",
   desc: "Stop Sinhala news auto updates",
@@ -70,14 +72,14 @@ cmd({
   if (!intervals[from]) return reply("🔴 Sinhala news not running.");
   clearInterval(intervals[from]);
   delete intervals[from];
-  delete sentLinks[from];
-  reply("🛑 Stopped Sinhala news updates.");
+  delete sent[from];
+  reply("🛑 Sinhala Dinamina auto-updates stopped.");
 });
 
-// 📥 Get latest Sinhala news now
+// 📥 getnews — fetch latest now
 cmd({
   pattern: "getnews",
-  desc: "Get latest Sinhala Ada Derana news",
+  desc: "Get latest Sinhala Dinamina news",
   category: "news",
   react: "📰",
   filename: __filename
@@ -86,13 +88,11 @@ cmd({
     const items = await fetchNews();
     const item = items[0];
     const { caption, image } = format(item);
-    if (image) {
-      await conn.sendMessage(from, { image: { url: image }, caption });
-    } else {
-      await conn.sendMessage(from, { text: caption });
-    }
+
+    if (image) await conn.sendMessage(from, { image: { url: image }, caption });
+    else await conn.sendMessage(from, { text: caption });
   } catch (e) {
     console.error("Fetch latest error:", e);
-    reply("❌ Error fetching Sinhala news.");
+    reply("❌ Error fetching latest Sinhala news.");
   }
 });
