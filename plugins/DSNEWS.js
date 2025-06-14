@@ -10,11 +10,13 @@ const parser = new Parser({
 const intervals = {};
 const sentLinks = {};
 
+// ✅ Sinhala Ada Derana feed
 async function fetchNews() {
-  const feed = await parser.parseURL('https://www.adaderana.lk/rss.php');
+  const feed = await parser.parseURL('https://sinhala.adaderana.lk/rss.php');
   return feed.items;
 }
 
+// 🧾 Format Sinhala news with optional image
 function format(item) {
   const image = item.enclosure?.url || null;
   return {
@@ -26,16 +28,16 @@ function format(item) {
   };
 }
 
-// Start auto news every 15 minutes
+// ▶️ Start auto updates
 cmd({
   pattern: "startnews",
-  desc: "Start Ada Derana Sinhala news updates every 15m",
+  desc: "Start Sinhala news updates every 15 min",
   category: "news",
   react: "🟢",
   filename: __filename
 }, async (conn, mek, m, { from, reply }) => {
   if (intervals[from]) return reply("🟢 Sinhala news already running.");
-  reply("✅ Started sending Sinhala Ada Derana news every 15 minutes.");
+  reply("✅ Started Sinhala Ada Derana news (every 15 minutes).");
   intervals[from] = setInterval(async () => {
     try {
       const items = await fetchNews();
@@ -51,13 +53,13 @@ cmd({
         }
       }
     } catch (e) {
-      console.error(e);
-      await conn.sendMessage(from, { text: "❌ Error auto-fetching Sinhala news." });
+      console.error("Auto fetch error:", e);
+      await conn.sendMessage(from, { text: "❌ Error fetching Sinhala news." });
     }
-  }, 15 * 60 * 1000);
+  }, 15 * 60 * 1000); // 15 minutes
 });
 
-// Stop auto news
+// ⏹ Stop auto news
 cmd({
   pattern: "stopnews",
   desc: "Stop Sinhala news auto updates",
@@ -69,13 +71,13 @@ cmd({
   clearInterval(intervals[from]);
   delete intervals[from];
   delete sentLinks[from];
-  reply("🛑 Stopped Ada Derana Sinhala news.");
+  reply("🛑 Stopped Sinhala news updates.");
 });
 
-// Get latest news once
+// 📥 Get latest Sinhala news now
 cmd({
   pattern: "getnews",
-  desc: "Get latest Ada Derana Sinhala news",
+  desc: "Get latest Sinhala Ada Derana news",
   category: "news",
   react: "📰",
   filename: __filename
@@ -90,7 +92,7 @@ cmd({
       await conn.sendMessage(from, { text: caption });
     }
   } catch (e) {
-    console.error(e);
-    reply("❌ Error fetching latest Sinhala news.");
+    console.error("Fetch latest error:", e);
+    reply("❌ Error fetching Sinhala news.");
   }
 });
