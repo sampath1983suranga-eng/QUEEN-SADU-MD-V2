@@ -1,49 +1,26 @@
-/**
- * JID Plugin for WhatsApp Baileys bot
- * Author: ChatGPT
- */
+const { cmd } = require('../command')
 
-module.exports = function jidPlugin(sock) {
-  sock.ev.on("messages.upsert", async (m) => {
-    const msg = m.messages[0];
-    if (!msg.message) return;
+cmd({
+  pattern: "jid",
+  desc: "get group jid & name",
+  category: "info",
+  react: "📌"
+}, async (conn, mek, m, { from, isGroup, reply }) => {
+    try {
+        if (!isGroup) {
+            return reply("🚫 මෙය group එකක් නොවේ.");
+        }
 
-    // get message text
-    let text = "";
-    if (msg.message.conversation) {
-      text = msg.message.conversation;
-    } else if (msg.message.extendedTextMessage) {
-      text = msg.message.extendedTextMessage.text;
+        const metadata = await conn.groupMetadata(from);
+        const groupJid = from;
+        const groupName = metadata.subject;
+
+        await conn.sendMessage(from, {
+          text: `🟢 *Group JID:* ${groupJid}\n🟢 *Group Name:* ${groupName}`
+        }, { quoted: mek });
+
+    } catch (error) {
+        console.error(error)
+        reply("😢 Group info ගන්න Error එකක්.")
     }
-
-    if (!text) return;
-
-    text = text.trim().toLowerCase();
-
-    // use pattern matching
-    const pattern = /^jid$/i;
-
-    if (pattern.test(text)) {
-      if (!msg.key.remoteJid.endsWith("@g.us")) {
-        await sock.sendMessage(msg.key.remoteJid, {
-          text: "🛑 මෙය group එකක් නොවේ."
-        });
-        return;
-      }
-
-      const groupJid = msg.key.remoteJid;
-
-      try {
-        const metadata = await sock.groupMetadata(groupJid);
-
-        await sock.sendMessage(groupJid, {
-          text: `🟢 *Group JID:* ${groupJid}\n🟢 *Group Name:* ${metadata.subject}`
-        });
-
-      } catch (e) {
-        console.error("Error getting group metadata", e);
-        await sock.sendMessage(groupJid, { text: "😢 Group info ගන්න Error එකක්." });
-      }
-    }
-  });
-};
+})
