@@ -206,7 +206,7 @@ cmd({
     pattern: "list",
     react: "🛸",
     alias: ["✓", "list", "music"],
-    desc: "Send PTT audio with caption", // විස්තරය වෙනස් කර ඇත
+    desc: "Send audio file with caption", // විස්තරය වෙනස් කර ඇත
     category: "main",
     use: '.menu3',
     filename: __filename
@@ -219,12 +219,12 @@ async (conn, mek, m, { from, pushname, reply }) => {
         // අහඹු කෙටි පණිවිඩයක් තෝරා ගැනීම
         const randomText = textMessages[Math.floor(Math.random() * textMessages.length)];
 
-        // PTT (audio) ලෙස caption එකක් සමඟ යැවීම
+        // audio file (document) ලෙස caption එකක් සමඟ යැවීම
         await conn.sendMessage(from, {
-            audio: { url: randomVoiceLink },
+            document: { url: randomVoiceLink }, // document object එක භාවිතා කිරීම
+            fileName: "voice.mp3", // මෙහිදී file name එක වැදගත්
             mimetype: "audio/mp3",
-            ptt: true, // මෙය PTT ලෙස යැවීමට වැදගත් වේ
-            caption: `👨🏻‍💻 *${pushname}*\n\n${randomText}`
+            caption: `👨🏻‍💻 *${pushname}*\n\n${randomText}` // caption එක
         });
 
     } catch (e) {
