@@ -3,7 +3,7 @@ const axios = require('axios'); // HTTP requests සඳහා
 
 // ඔබගේම News API හි URL එක මෙහි සඳහන් කරන්න.
 // මෙය ඔබ Render.com හි deploy කළ API එකයි.
-const ESANA_NEWS_API_URL = "https://news-api-bv26.onrender.com/api/news"; 
+const ESANA_NEWS_API_URL = "https://news-api-bv26.onrender.com/api/news "; 
 
 cmd({
     pattern: "news",
