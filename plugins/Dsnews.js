@@ -1,11 +1,5 @@
 const { cmd } = require('../command');
-const axios = require('axios'); // HTTP requests සඳහා
-
-// --- වැදගත්: ඔබේ NewsAPI යතුර මෙහි ඇතුළත් කරන්න! ---
-// NewsAPI යතුරක් ලබා ගන්නා ආකාරය පහතින් විස්තර කර ඇත.
-// "YOUR_NEWS_API_KEY_HERE" යන තැනට ඔබගේ සත්‍ය NewsAPI යතුර ඇතුළත් කරන්න.
-const NEWS_API_KEY = "YOUR_NEWS_API_KEY_HERE";
-// ---------------------------------------------------
+const axios = require('axios');
 
 cmd({
     pattern: "news",
@@ -17,14 +11,12 @@ cmd({
 },
 async (conn, mek, m, { from, reply }) => {
     try {
-        if (!NEWS_API_KEY || NEWS_API_KEY === "d825877ec43a45ca864a6c24491a7b1f") {
-            return reply("කරුණාකර NewsAPI යතුරක් ලබාගෙන 'NEWS_API_KEY' නියතය තුළ එය ඇතුළත් කරන්න.");
-        }
+        // ඔබේ Render API endpoint එක මෙතනට දමන්න
+        // සටහන: /api/news කියන endpoint එක අනිවාර්යයෙන්ම URL එකට එකතු කරන්න.
+        const yourApiUrl = "https://news-api-bv26.onrender.com/api/news"; // <-- මේක තමයි ඔබේ අලුත් API URL එක
 
-        const newsApiUrl = `https://newsapi.org/v2/everything?q=Hiru%20News%20ශ්‍රී%20ලංකා&language=si&sortBy=publishedAt&pageSize=3&apiKey=${NEWS_API_KEY}`;
-
-        const response = await axios.get(newsApiUrl);
-        const articles = response.data.articles;
+        const response = await axios.get(yourApiUrl);
+        const articles = response.data; // ඔබේ API එකෙන් කෙලින්ම articles array එක එනවා
 
         if (articles.length === 0) {
             return reply("කණගාටුයි, දැනට සිංහල පුවත් සොයා ගැනීමට නොහැකි විය. කරුණාකර ටික වේලාවකින් නැවත උත්සාහ කරන්න.");
@@ -43,12 +35,6 @@ async (conn, mek, m, { from, reply }) => {
 
     } catch (e) {
         console.error("පුවත් ලබා ගැනීමේදී දෝෂයක්:", e);
-        if (e.response && e.response.status === 401) {
-            reply("NewsAPI යතුර වලංගු නැත හෝ අස්ථානගත වී ඇත. කරුණාකර ඔබේ API යතුර නිවැරදිව ඇතුළත් කර ඇතිදැයි පරීක්ෂා කරන්න.");
-        } else if (e.response && e.response.status === 429) {
-            reply("NewsAPI වෙත ඕනෑවට වඩා ඉල්ලීම් යවා ඇත. කරුණාකර ටික වේලාවකට පසු නැවත උත්සාහ කරන්න.");
-        } else {
-            reply(`පුවත් ලබාගැනීමේදී දෝෂයක් සිදුවිය: ${e.message}`);
-        }
+        reply(`පුවත් ලබාගැනීමේදී දෝෂයක් සිදුවිය: ${e.message}`);
     }
 });
