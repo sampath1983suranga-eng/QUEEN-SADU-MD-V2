@@ -6,8 +6,8 @@ const AL_PAPER_DATA_URL = "https://raw.githubusercontent.com/MRDofc/mrd-ai-al-pa
 const OL_PAPER_DATA_URL = "https://raw.githubusercontent.com/MRDofc/MRD-AI-paspaper/main/json/ol-papers.json";
 
 // User state කළමනාකරණය සඳහා Map එකක්
-// (මෙය සරල ක්‍රමයකි, සංකීර්ණ bot වලට Database එකක් භාවිතා කිරීම වඩා හොඳයි)
-const userStates = new Map(); // Stores { state: 'exam_type' | 'subject_select', examType: 'ol' | 'al' }
+// (මෙය plugin එක තුළම පවතී)
+const userStates = new Map(); // Stores { state: 'exam_type_selected' | 'subject_select', examType: 'ol' | 'al' }
 
 // ======================================================
 // Main Command Handler: `!pp`
@@ -25,7 +25,6 @@ async (conn, mek, m, { from, reply, command }) => {
     userStates.delete(senderId); // සෑම විටම අලුත් සංවාදයක් ලෙස සලකයි
 
     try {
-        // පළමු මෙනුව - විභාග වර්ගය තෝරා ගැනීම
         const sections = [
             {
                 title: "විභාග වර්ගය තෝරන්න",
@@ -53,88 +52,16 @@ async (conn, mek, m, { from, reply, command }) => {
         };
 
         await conn.sendMessage(from, listMessage, { quoted: mek });
-        // User ගේ state එක save කරන්න
-        userStates.set(senderId, { state: 'exam_type_selected' }); 
+        // userStates.set(senderId, { state: 'exam_type_selected' }); // state එක මෙතන තියාගන්න අවශ්‍ය නැත, මක්නිසාද අපි List Message reply එකම listen කරන නිසා
 
     } catch (e) {
-        console.error("Past Paper Plugin Error:", e);
+        console.error("Past Paper Plugin Error (pp command):", e);
         reply(`පසුගිය ප්‍රශ්න පත්‍ර ලබාගැනීමේදී දෝෂයක් සිදුවිය: ${e.message}`);
     }
 });
 
 // ======================================================
-// List Message තේරීම් හසුරුවන Event Handler
-// (මෙය ඔබගේ ප්‍රධාන bot file - e.g., `sadi.js` හෝ `index.js` - හි තිබිය යුතුයි)
-// ======================================================
-
-// මෙය `commands` object එකේ කොටසක් නොවේ.
-// මෙය WhatsApp bot framework එකේ `messages.upsert` event එක listen කරන ආකාරයට සකස් කළ යුතුය.
-// ඔබගේ bot library එක අනුව මෙය වෙනස් විය හැක.
-// උදාහරණයක් ලෙස: `conn.ev.on('messages.upsert', async chatUpdate => { ... });`
-
-/*
-    පහත code කොටස copy කර ඔබගේ ප්‍රධාන bot file එකේ (ඔබ `conn` object එක define කර ඇති තැනට ආසන්නව) paste කරන්න.
-    සටහන: ඔබගේ bot library එක `mek.message.listResponseMessage` වැනි දේට support කරනවාද යන්න පරීක්ෂා කරන්න.
-*/
-
-// const userStates = new Map(); // මෙම map එක ගෝලීයව define කර ඇත්දැයි තහවුරු කරන්න
-
-commands.addHandler(
-    'listResponseMessage', // List message තේරීමක් ලැබුණු විට trigger වීමට
-    async (conn, mek, m, { from, reply }) => {
-        const senderId = m.sender;
-        const selectedRowId = mek.message.listResponseMessage.singleSelectReply.selectedRowId;
-        const userState = userStates.get(senderId);
-
-        try {
-            // --- Step 1: විභාග වර්ගය තෝරා ගැනීමෙන් පසුව ---
-            if (selectedRowId === "pp_select_exam_ol") {
-                await reply("ඔබ සාමාන්‍ය පෙළ තෝරා ගත්තා.");
-                userStates.set(senderId, { state: 'subject_select', examType: 'ol' });
-                await sendSubjectList(conn, from, 'ol');
-            } else if (selectedRowId === "pp_select_exam_al") {
-                await reply("ඔබ උසස් පෙළ තෝරා ගත්තා.");
-                userStates.set(senderId, { state: 'subject_select', examType: 'al' });
-                await sendSubjectList(conn, from, 'al');
-            }
-            // --- Step 2: විෂයයක් තෝරා ගැනීමෙන් පසුව (PDF download) ---
-            else if (selectedRowId.startsWith('pp_download_')) {
-                const parts = selectedRowId.split('_'); // e.g., ["pp", "download", "ol", "subjectIndex"]
-                const examType = parts[2];
-                const subjectIndex = parseInt(parts[3]);
-
-                const paperData = await fetchPaperData(examType); // අදාළ විභාග වර්ගයේ JSON data ලබා ගන්න
-                if (!paperData || !paperData[examType] || paperData[examType].length <= subjectIndex) {
-                    userStates.delete(senderId);
-                    return reply("කණගාටුයි, තෝරාගත් ප්‍රශ්න පත්‍රය සොයාගත නොහැක.");
-                }
-
-                const selectedSubject = paperData[examType][subjectIndex];
-
-                if (selectedSubject.pdfUrl) {
-                    await conn.sendMessage(from, { document: { url: selectedSubject.pdfUrl }, mimetype: 'application/pdf', fileName: `${selectedSubject.name}_${examType.toUpperCase()}_PastPaper.pdf` }, { quoted: mek });
-                    await reply(`ඔබ තෝරාගත් *${selectedSubject.name}* (${examType.toUpperCase()}) ප්‍රශ්න පත්‍රය පහතින්.`);
-                    userStates.delete(senderId); // සංවාදය අවසන්, state reset කරන්න
-                } else {
-                    userStates.delete(senderId);
-                    return reply("කණගාටුයි, එම විෂය සඳහා PDF ලිපිනයක් සොයා ගැනීමට නොහැකි විය.");
-                }
-            } else {
-                // නොදන්නා තේරීමක්
-                reply("කරුණාකර නිවැරදි විකල්පයක් තෝරන්න.");
-                userStates.delete(senderId); // reset state
-            }
-        } catch (e) {
-            console.error("List Message Handler Error:", e);
-            userStates.delete(senderId); // reset state on error
-            reply(`ක්‍රියාවලිය අසාර්ථක විය: ${e.message}`);
-        }
-    }
-);
-
-
-// ======================================================
-// Helper Functions
+// Helper Functions (ප්ලගිනය තුළම)
 // ======================================================
 
 // අදාළ විභාග වර්ගයේ JSON data ලබා ගන්නා function එක
@@ -152,7 +79,6 @@ async function fetchPaperData(examType) {
         const response = await axios.get(url);
         // JSON data ඔබගේ GitHub repository හි 'al' හෝ 'ol' key එකක් තුළට දමා නොමැති නිසා,
         // සෘජුවම array එකක් ලෙස ලැබේවි.
-        // එබැවින්, response.data යනු කෙලින්ම array එකක් බවට උපකල්පනය කරමු.
         return { [examType]: response.data }; // `{ ol: [...] }` හෝ `{ al: [...] }` ලෙස ආපසු යවමු.
     } catch (error) {
         console.error(`Error fetching ${examType} paper data from ${url}:`, error.message);
@@ -186,4 +112,68 @@ async function sendSubjectList(conn, from, examType) {
     };
 
     await conn.sendMessage(from, subjectListMessage);
-       }
+}
+
+
+// ======================================================
+// List Message Reply Handler (plugin එක තුළම)
+// ======================================================
+
+// මේ handler එක, List Message එකක "reply" එකක් ලැබුණු විට ක්‍රියාත්මක වේ.
+// ඔබගේ command system එකෙන් message event එක pass කරන ආකාරය අනුව මෙය වෙනස් විය හැක.
+// සමහර command systems වලට `cmd` හැර වෙනත් generic message handler එකක් (e.g. `on('message')`) අවශ්‍ය විය හැකිය.
+// මම මෙහිදී 'commands' object එකේ 'addHandler' method එකක් ඇතැයි උපකල්පනය කරමි.
+// මෙය ක්‍රියාත්මක නොවන්නේ නම්, ඔබගේ bot framework හි `messages.upsert` event listener එක සොයාගෙන එහිදී මෙය ක්‍රියාත්මක කිරීමට සිදුවේ.
+
+commands.addHandler(
+    'listResponseMessage', // මෙය List Message response type එකට සවන් දෙයි
+    async (conn, mek, m, { from, reply }) => { // m object එකට message details ලැබෙනවා නම්
+        // මෙම කොටස ක්‍රියාත්මක වන්නේ List Message එකකින් "reply" එකක් ලැබුණු විට පමණයි.
+        // සාමාන්‍ය text messages සඳහා නොවේ.
+        if (!mek.message || !mek.message.listResponseMessage) {
+            return; // List Message reply එකක් නොවේ නම් ඉවත් වන්න
+        }
+
+        const senderId = m.sender;
+        const selectedRowId = mek.message.listResponseMessage.singleSelectReply.selectedRowId;
+        
+        try {
+            // --- Step 1: විභාග වර්ගය තෝරා ගැනීමෙන් පසුව ---
+            if (selectedRowId === "pp_select_exam_ol") {
+                await reply("ඔබ සාමාන්‍ය පෙළ තෝරා ගත්තා.");
+                // userStates.set(senderId, { state: 'subject_select', examType: 'ol' }); // state එක මෙතන තියාගන්න අවශ්‍ය නැත, ID එකෙන් කෙලින්ම යන නිසා
+                await sendSubjectList(conn, from, 'ol');
+            } else if (selectedRowId === "pp_select_exam_al") {
+                await reply("ඔබ උසස් පෙළ තෝරා ගත්තා.");
+                // userStates.set(senderId, { state: 'subject_select', examType: 'al' });
+                await sendSubjectList(conn, from, 'al');
+            }
+            // --- Step 2: විෂයයක් තෝරා ගැනීමෙන් පසුව (PDF download) ---
+            else if (selectedRowId.startsWith('pp_download_')) {
+                const parts = selectedRowId.split('_'); // e.g., ["pp", "download", "ol", "subjectIndex"]
+                const examType = parts[2];
+                const subjectIndex = parseInt(parts[3]);
+
+                const paperData = await fetchPaperData(examType); // අදාළ විභාග වර්ගයේ JSON data ලබා ගන්න
+                if (!paperData || !paperData[examType] || paperData[examType].length <= subjectIndex) {
+                    return reply("කණගාටුයි, තෝරාගත් ප්‍රශ්න පත්‍රය සොයාගත නොහැක.");
+                }
+
+                const selectedSubject = paperData[examType][subjectIndex];
+
+                if (selectedSubject.Link) { // JSON එකේ Link යන key එක ඇති නිසා
+                    await conn.sendMessage(from, { document: { url: selectedSubject.Link }, mimetype: 'application/pdf', fileName: `${selectedSubject.Subject}_${examType.toUpperCase()}_PastPaper.pdf` }); // quoted නැතිව යවන්න පුළුවන්
+                    await reply(`ඔබ තෝරාගත් *${selectedSubject.Subject}* (${examType.toUpperCase()}) ප්‍රශ්න පත්‍රය පහතින්.`);
+                } else {
+                    return reply("කණගාටුයි, එම විෂය සඳහා PDF ලිපිනයක් සොයා ගැනීමට නොහැකි විය.");
+                }
+            } else {
+                // නොදන්නා තේරීමක්
+                reply("කරුණාකර නිවැරදි විකල්පයක් තෝරන්න.");
+            }
+        } catch (e) {
+            console.error("Past Paper List Reply Handler Error:", e);
+            reply(`ක්‍රියාවලිය අසාර්ථක විය: ${e.message}`);
+        }
+    }
+);
