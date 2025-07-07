@@ -1,49 +1,155 @@
-const { cmd , commands} = require('../command'); // ඔබගේ command system එකට අනුව
-const axios = require('axios'); // HTTP requests සඳහා
+const { cmd } = require('../command');
+const Hiru = require('hirunews-scrap');
+const Esana = require('@sl-code-lords/esana-news');
+const config = require('../config');
 
-// ඔබගේම News API හි URL එක මෙහි සඳහන් කරන්න.
-// මෙය ඔබ Render.com හි deploy කළ API එකයි.
-const ESANA_NEWS_API_URL = "https://news-api-bv26.onrender.com/api/news "; 
+let activeGroups = {};
+let lastNewsTitles = {};
+
+// MP4 short looping videos with gif effect
+const gifStyleVideos = [
+    "https://files.catbox.moe/u8r3o9.mp4",
+    "https://files.catbox.moe/9m5wx6.mp4"
+];
+
+function getRandomGifVideo() {
+    return gifStyleVideos[Math.floor(Math.random() * gifStyleVideos.length)];
+}
+
+async function getLatestNews() {
+    let newsData = [];
+
+    try {
+        const hiruApi = new Hiru();
+        const hiruNews = await hiruApi.BreakingNews();
+        newsData.push({
+            title: hiruNews.results.title,
+            content: hiruNews.results.news,
+            date: hiruNews.results.date
+        });
+    } catch (err) {
+        console.error(`Error fetching Hiru News: ${err.message}`);
+    }
+
+    try {
+        const esanaApi = new Esana();
+        const esanaNews = await esanaApi.getLatestNews();
+        if (esanaNews?.title && esanaNews?.description && esanaNews?.publishedAt) {
+            newsData.push({
+                title: esanaNews.title,
+                content: esanaNews.description,
+                date: esanaNews.publishedAt
+            });
+        }
+    } catch (err) {
+        console.error(`Error fetching Esana News: ${err.message}`);
+    }
+
+    return newsData;
+}
+
+async function checkAndPostNews(conn, groupId) {
+    const latestNews = await getLatestNews();
+
+    latestNews.forEach(async (newsItem) => {
+        if (!lastNewsTitles[groupId]) lastNewsTitles[groupId] = [];
+
+        if (!lastNewsTitles[groupId].includes(newsItem.title)) {
+            const gifVideo = getRandomGifVideo();
+            const caption = `*🔵 𝐍𝐄𝐖𝐒 𝐀𝐋𝐄𝐑𝐓!*\n▁ ▂ ▄ ▅ ▆ ▇ █ [  ] █ ▇ ▆ ▅ ▄ ▂ ▁\n\n📰 *${newsItem.title}*\n\n${newsItem.content}\n\n${newsItem.date}\n\n> *©ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍʀ ᴅɪɴᴇꜱʜ ᴏꜰᴄ*\n> *QUEEN-SADU-MD & D-XTRO-MD*`;
+
+            try {
+                await conn.sendMessage(groupId, {
+                    video: { url: gifVideo },
+                    caption,
+                    mimetype: "video/mp4",
+                    gifPlayback: true
+                });
+
+                lastNewsTitles[groupId].push(newsItem.title);
+                if (lastNewsTitles[groupId].length > 100) lastNewsTitles[groupId].shift();
+
+            } catch (e) {
+                console.error(`Failed to send video message: ${e.message}`);
+            }
+        }
+    });
+}
 
 cmd({
-    pattern: "news",
+    pattern: "startnews",
+    desc: "Enable Sri Lankan news updates in this group",
+    isGroup: true,
     react: "📰",
-    alias: ["sinhala_news", "lanka_news"],
-    desc: "නවතම සිංහල පුවත් (Esana.lk වෙතින්) ලබා ගන්න.",
-    category: "main",
     filename: __filename
-},
-async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply}) => {
+}, async (conn, mek, m, { from, isGroup, participants }) => {
     try {
-        // API වෙතින් පුවත් ලබා ගැනීම
-        const response = await axios.get(ESANA_NEWS_API_URL);
-        const articles = response.data; // API එකෙන් කෙලින්ම articles array එක එනවා
+        if (isGroup) {
+            const isAdmin = participants.some(p => p.id === mek.sender && p.admin);
+            const isBotOwner = mek.sender === conn.user.jid;
 
-        if (!articles || articles.length === 0) {
-            return reply("කණගාටුයි, දැනට සිංහල පුවත් සොයා ගැනීමට නොහැකි විය. කරුණාකර ටික වේලාවකින් නැවත උත්සාහ කරන්න.");
-        }
+            if (isAdmin || isBotOwner) {
+                if (!activeGroups[from]) {
+                    activeGroups[from] = true;
 
-        let newsMessage = "*අලුත්ම සිංහල පුවත් (Esana.lk වෙතින්) :*\n\n";
+                    await conn.sendMessage(from, { text: "🇱🇰 Auto 24/7 News Activated.\n\n> QUEEN-SADU-MD & D-XTRO-MD" });
 
-        // පුවත් 3ක් පමණක් පෙන්වීමට
-        for (let i = 0; i < Math.min(articles.length, 3); i++) {
-            const article = articles[i];
-            newsMessage += `*${i + 1}. ${article.title || 'මාතෘකාවක් නොමැත'}*\n`;
-            newsMessage += `   _${article.description || 'විස්තරයක් නොමැත'}_\n`;
-            newsMessage += `   කියවන්න: ${article.url}\n\n`;
-        }
-
-        await conn.sendMessage(from, { text: newsMessage }, { quoted: mek });
-
-    } catch (e) {
-        console.error("පුවත් ලබා ගැනීමේදී දෝෂයක්:", e);
-        // API request එකේ error එකක් ආවොත්, ඒකෙන් කියවෙන දේ user ට පෙන්වයි
-        if (e.response) {
-            reply(`පුවත් ලබාගැනීමේදී දෝෂයක් සිදුවිය: API දෝෂය - ${e.response.status} ${e.response.statusText}`);
-        } else if (e.request) {
-            reply(`පුවත් ලබාගැනීමේදී දෝෂයක් සිදුවිය: API වෙත සම්බන්ධ වීමේ ගැටලුවක්.`);
+                    if (!activeGroups['interval']) {
+                        activeGroups['interval'] = setInterval(async () => {
+                            for (const groupId in activeGroups) {
+                                if (activeGroups[groupId] && groupId !== 'interval') {
+                                    await checkAndPostNews(conn, groupId);
+                                }
+                            }
+                        }, 60000);
+                    }
+                } else {
+                    await conn.sendMessage(from, { text: "*✅ 24/7 News Already Activated.*\n\n> QUEEN-SADU-MD & D-XTRO-MD" });
+                }
+            } else {
+                await conn.sendMessage(from, { text: "🚫 Only group admins or bot owner can use this command." });
+            }
         } else {
-            reply(`පුවත් ලබාගැනීමේදී දෝෂයක් සිදුවිය: ${e.message}`);
+            await conn.sendMessage(from, { text: "This command can only be used in groups." });
         }
+    } catch (e) {
+        console.error(`Error in startnews command: ${e.message}`);
+        await conn.sendMessage(from, { text: "Failed to activate news service." });
+    }
+});
+
+cmd({
+    pattern: "stopnews",
+    desc: "Disable Sri Lankan news updates in this group",
+    isGroup: true,
+    react: "🛑",
+    filename: __filename
+}, async (conn, mek, m, { from, isGroup, participants }) => {
+    try {
+        if (isGroup) {
+            const isAdmin = participants.some(p => p.id === mek.sender && p.admin);
+            const isBotOwner = mek.sender === conn.user.jid;
+
+            if (isAdmin || isBotOwner) {
+                if (activeGroups[from]) {
+                    delete activeGroups[from];
+                    await conn.sendMessage(from, { text: "*🛑 News updates disabled in this group*" });
+
+                    if (Object.keys(activeGroups).length === 1 && activeGroups['interval']) {
+                        clearInterval(activeGroups['interval']);
+                        delete activeGroups['interval'];
+                    }
+                } else {
+                    await conn.sendMessage(from, { text: "⚠️ News updates not active in this group." });
+                }
+            } else {
+                await conn.sendMessage(from, { text: "🚫 Only group admins or bot owner can use this command." });
+            }
+        } else {
+            await conn.sendMessage(from, { text: "This command can only be used in groups." });
+        }
+    } catch (e) {
+        console.error(`Error in stopnews command: ${e.message}`);
+        await conn.sendMessage(from, { text: "Failed to deactivate news service." });
     }
 });
