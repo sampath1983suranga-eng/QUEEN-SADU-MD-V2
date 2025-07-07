@@ -15,7 +15,7 @@ function loadPaperData(filename) {
 
 // Function to group subjects and get available years
 function processPapers(papers) {
-    if (!papers) return {};
+    if (!papers) return []; // Return an empty array if papers is null
 
     const subjectsMap = {};
     papers.forEach(paper => {
@@ -49,25 +49,26 @@ function processPapers(papers) {
 
 let olPapersRaw;
 let alPapersRaw;
-let olSubjects = {};
-let alSubjects = {};
+let olSubjects = []; // Initialize as array
+let alSubjects = []; // Initialize as array
 
 module.exports = {
     name: 'pastpapers',
     description: 'Get O/L and A/L past papers.',
     async before(m, { conn, user, bot, group, isOwner, isAdmin, isBotAdmin, send, reply, react }) {
         // Load data once when the plugin is loaded
-        if (!olPapersRaw) {
+        if (Object.keys(olSubjects).length === 0) { // Check if already loaded
             olPapersRaw = loadPaperData('ol-papers.json');
             olSubjects = processPapers(olPapersRaw);
         }
-        if (!alPapersRaw) {
+        if (Object.keys(alSubjects).length === 0) { // Check if already loaded
             alPapersRaw = loadPaperData('al-papers.json');
             alSubjects = processPapers(alPapersRaw);
         }
 
         if (!olSubjects || !alSubjects) {
-            await reply("Error loading past paper data. Please check the server logs.");
+            // This error will be logged, and the commands won't work.
+            // The commands themselves will also have checks for empty data.
             return true; // Stop further command processing if data loading failed
         }
         return false; // Continue to the command handler
@@ -76,43 +77,43 @@ module.exports = {
         {
             name: 'ol',
             command: ['ol', 'සාපෙළ', 'සාමාන්‍යපෙළ'],
-            category: 'Past Papers',
+            category: 'Past Papers', // Ensure this category matches your menu plugin's categories
             description: 'Get list of available O/L subjects.',
             async execute(m, { conn, args, reply }) {
-                if (Object.keys(olSubjects).length === 0) {
-                    return reply("සාමාන්‍ය පෙළ ප්‍රශ්න පත්‍ර සඳහා විෂයයන් නොමැත.");
+                if (!olSubjects || olSubjects.length === 0) {
+                    return reply("සාමාන්‍ය පෙළ ප්‍රශ්න පත්‍ර සඳහා විෂයයන් නොමැත, නැතහොත් දත්ත ලබාගැනීමේ දෝෂයක් ඇත.");
                 }
 
                 let subjectMenu = '*සාමාන්‍ය පෙළ (O/L) විෂයන්:*\n\n';
                 olSubjects.forEach((subject, index) => {
                     subjectMenu += `${index + 1}. ${subject.Subject} (${subject.Year ? subject.Year + " දක්වා" : "වසරක් නැත"})\n`;
                 });
-                subjectMenu += `\n*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .olp 1 2022)*`;
+                subjectMenu += `\n*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .olget 1 2022)*`;
                 await reply(subjectMenu);
             }
         },
         {
             name: 'al',
             command: ['al', 'උපෙළ', 'උසස්පෙළ'],
-            category: 'Past Papers',
+            category: 'Past Papers', // Ensure this category matches your menu plugin's categories
             description: 'Get list of available A/L subjects.',
             async execute(m, { conn, args, reply }) {
-                if (Object.keys(alSubjects).length === 0) {
-                    return reply("උසස් පෙළ ප්‍රශ්න පත්‍ර සඳහා විෂයයන් නොමැත.");
+                if (!alSubjects || alSubjects.length === 0) {
+                    return reply("උසස් පෙළ ප්‍රශ්න පත්‍ර සඳහා විෂයයන් නොමැත, නැතහොත් දත්ත ලබාගැනීමේ දෝෂයක් ඇත.");
                 }
 
                 let subjectMenu = '*උසස් පෙළ (A/L) විෂයන්:*\n\n';
                 alSubjects.forEach((subject, index) => {
                     subjectMenu += `${index + 1}. ${subject.Subject} (${subject.Year ? subject.Year + " දක්වා" : "වසරක් නැත"})\n`;
                 });
-                subjectMenu += `\n*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .alp 1 2022)*`;
+                subjectMenu += `\n*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .alget 1 2022)*`;
                 await reply(subjectMenu);
             }
         },
         {
-            name: 'olp',
+            name: 'olget',
             command: ['olget'],
-            category: 'Past Papers',
+            category: 'Past Papers', // Ensure this category matches your menu plugin's categories
             description: 'Get a specific O/L past paper. Usage: .olget <subject_number> <year>',
             async execute(m, { conn, args, reply, from }) {
                 const subjectNumber = parseInt(args[0]);
@@ -122,6 +123,10 @@ module.exports = {
                     return reply("භාවිතා කරන ආකාරය: .olget <විෂය අංකය> <වර්ෂය>\nඋදා: .olget 1 2022");
                 }
 
+                if (!olSubjects || olSubjects.length === 0) {
+                    return reply("සාමාන්‍ය පෙළ ප්‍රශ්න පත්‍ර දත්ත ලබාගත නොහැක.");
+                }
+                
                 const selectedSubject = olSubjects[subjectNumber - 1];
 
                 if (!selectedSubject) {
@@ -156,7 +161,7 @@ module.exports = {
         {
             name: 'alget',
             command: ['alget'],
-            category: 'Past Papers',
+            category: 'Past Papers', // Ensure this category matches your menu plugin's categories
             description: 'Get a specific A/L past paper. Usage: .alget <subject_number> <year>',
             async execute(m, { conn, args, reply, from }) {
                 const subjectNumber = parseInt(args[0]);
@@ -164,6 +169,10 @@ module.exports = {
 
                 if (isNaN(subjectNumber) || !year) {
                     return reply("භාවිතා කරන ආකාරය: .alget <විෂය අංකය> <වර්ෂය>\nඋදා: .alget 1 2022");
+                }
+
+                if (!alSubjects || alSubjects.length === 0) {
+                    return reply("උසස් පෙළ ප්‍රශ්න පත්‍ර දත්ත ලබාගත නොහැක.");
                 }
 
                 const selectedSubject = alSubjects[subjectNumber - 1];
