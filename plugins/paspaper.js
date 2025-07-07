@@ -1,12 +1,6 @@
-// plugins/pp.js (Text-Based Interaction - Debugging added)
-const { cmd } = require('../command'); // ඔබගේ command system එකට අනුව
-const axios = require('axios'); // JSON data ලබා ගැනීමට
+// plugins/pp.js
+// ... (ඉහළින් ඇති requires සහ JSON URLs)
 
-// ඔබගේ JSON URLs මෙහි සඳහන් කරන්න
-const AL_PAPER_DATA_URL = "https://raw.githubusercontent.com/MRDofc/mrd-ai-al-paper/main/json/al-papers.json";
-const OL_PAPER_DATA_URL = "https://raw.githubusercontent.com/MRDofc/MRD-AI-paspaper/blob/main/json/ol-papers.json"; // GitHub URL එකේ raw නැත්නම් එකතු කරන්න
-
-// User state කළමනාකරණය සඳහා Map එකක්
 const userInteractionStates = new Map();
 
 // ======================================================
@@ -20,19 +14,22 @@ cmd({
     category: "main",
     filename: __filename
 },
-async (conn, mek, m, { from, reply, command, body, args }) => { // args parameter එකත් එකතු කළා.
+async (conn, mek, m, { from, reply, command, body, args }) => {
     const senderId = m.sender; 
-    const text = body ? body.toLowerCase().trim() : ''; // body එක undefined වෙන්න පුළුවන්, ඒක check කළා
-
-    console.log(`[PP Plugin] Command received: ${command}, Body: "${body}", Text: "${text}"`);
+    
+    // මෙන්න මේ පේලිය වෙනස් කරන්න:
+    // ඔබගේ config.PREFIX එක බැලූ විට, එය . විය හැකි නිසා body එකෙන් prefix එක ඉවත් කළ යුතුයි.
+    const textWithoutPrefix = body ? body.slice(config.PREFIX.length).toLowerCase().trim() : ''; 
+    
+    console.log(`[PP Plugin] Command received: ${command}, Body: "${body}", Text (without prefix): "${textWithoutPrefix}"`);
     console.log(`[PP Plugin] Sender: ${senderId}, Current State: ${JSON.stringify(userInteractionStates.get(senderId))}`);
 
     try {
         const userState = userInteractionStates.get(senderId);
 
-        // --- 1. Initial command: `!pp` ---
+        // --- 1. Initial command: `!pp` (now uses textWithoutPrefix) ---
         // Check if the command itself is matched OR if it's the first message after a reset
-        if (text === command || (text.startsWith(command) && args.length === 0 && !userState)) { // 'pp' command එක මුලින්ම දුන්නම or just !pp
+        if (textWithoutPrefix === command || (textWithoutPrefix.startsWith(command) && args.length === 0 && !userState)) { // 'pp' command එක මුලින්ම දුන්නම or just !pp
             let menu = "*පසුගිය ප්‍රශ්න පත්‍ර (Past Papers) - විභාග වර්ගය තෝරන්න:*\n\n";
             menu += "1. සාමාන්‍ය පෙළ (O/L)\n";
             menu += "2. උසස් පෙළ (A/L)\n\n";
@@ -42,21 +39,24 @@ async (conn, mek, m, { from, reply, command, body, args }) => { // args paramete
             return reply(menu);
         }
 
-        // --- 2. Awaiting Exam Type Selection ---
+        // --- 2. Awaiting Exam Type Selection (now uses textWithoutPrefix for subsequent user inputs) ---
         if (userState && userState.state === 'awaiting_exam_type') {
             let selectedType = '';
-            if (text === '1' || text.includes('සාමාන්‍ය පෙළ') || text.includes('ol')) {
+            // මෙන්න මේ පේලිය වෙනස් කරන්න:
+            if (textWithoutPrefix === '1' || textWithoutPrefix.includes('සාමාන්‍ය පෙළ') || textWithoutPrefix.includes('ol')) {
                 selectedType = 'ol';
                 await reply("ඔබ සාමාන්‍ය පෙළ තෝරා ගත්තා.");
-            } else if (text === '2' || text.includes('උසස් පෙළ') || text.includes('al')) {
+            // මෙන්න මේ පේලිය වෙනස් කරන්න:
+            } else if (textWithoutPrefix === '2' || textWithoutPrefix.includes('උසස් පෙළ') || textWithoutPrefix.includes('al')) {
                 selectedType = 'al';
                 await reply("ඔබ උසස් පෙළ තෝරා ගත්තා.");
             } else {
-                console.log(`[PP Plugin] Invalid exam type selection: "${text}" from ${senderId}.`);
-                userInteractionStates.delete(senderId); // Reset state on invalid input
-                return reply("කරුණාකර නිවැරදි අංකයක් (1 හෝ 2) ටයිප් කරන්න. නැතහොත් `!pp` යොදා නැවත අරඹන්න.");
+                console.log(`[PP Plugin] Invalid exam type selection: "${textWithoutPrefix}" from ${senderId}.`);
+                userInteractionStates.delete(senderId); 
+                return reply("කරුණාකර නිවැරදි අංකයක් (1 හෝ 2) ටයිප් කරන්න. නැතහොත් `.pp` යොදා නැවත අරඹන්න."); // prefix එකත් මෙතන දාලා දුන්නා
             }
 
+            // ... (rest of the code for awaiting_exam_type state)
             const paperData = await fetchPaperData(selectedType); 
             const subjects = paperData ? paperData[selectedType] : []; 
 
@@ -76,16 +76,18 @@ async (conn, mek, m, { from, reply, command, body, args }) => { // args paramete
             return reply(subjectMenu);
         }
 
-        // --- 3. Awaiting Subject Selection & PDF Download ---
+        // --- 3. Awaiting Subject Selection & PDF Download (now uses textWithoutPrefix) ---
         if (userState && userState.state === 'awaiting_subject_selection' && userState.examType && userState.subjects) {
-            const subjectIndex = parseInt(text) - 1; 
+            // මෙන්න මේ පේලිය වෙනස් කරන්න:
+            const subjectIndex = parseInt(textWithoutPrefix) - 1; 
 
             if (isNaN(subjectIndex) || subjectIndex < 0 || subjectIndex >= userState.subjects.length) {
-                console.log(`[PP Plugin] Invalid subject selection: "${text}" from ${senderId}.`);
-                userInteractionStates.delete(senderId); // Reset state on invalid input
-                return reply("කරුණාකර නිවැරදි විෂය අංකයක් ටයිප් කරන්න. නැතහොත් `!pp` යොදා නැවත අරඹන්න.");
+                console.log(`[PP Plugin] Invalid subject selection: "${textWithoutPrefix}" from ${senderId}.`);
+                userInteractionStates.delete(senderId); 
+                return reply("කරුණාකර නිවැරදි විෂය අංකයක් ටයිප් කරන්න. නැතහොත් `.pp` යොදා නැවත අරඹන්න."); // prefix එකත් මෙතන දාලා දුන්නා
             }
 
+            // ... (rest of the code for awaiting_subject_selection state)
             const selectedSubject = userState.subjects[subjectIndex];
             userInteractionStates.delete(senderId); 
             console.log(`[PP Plugin] User ${senderId} selected subject: ${selectedSubject.Subject}.`);
@@ -99,10 +101,7 @@ async (conn, mek, m, { from, reply, command, body, args }) => { // args paramete
             }
         }
         
-        // If the message is not part of an ongoing 'pp' interaction
-        // and it's not the initial 'pp' command, then this command handler does nothing.
-        // It will allow other commands to be processed if they match.
-        console.log(`[PP Plugin] Message "${text}" from ${senderId} did not match any PP interaction state.`);
+        console.log(`[PP Plugin] Message "${textWithoutPrefix}" from ${senderId} did not match any PP interaction state.`);
         
     } catch (e) {
         console.error("Past Paper Plugin Error:", e);
@@ -111,16 +110,14 @@ async (conn, mek, m, { from, reply, command, body, args }) => { // args paramete
     }
 });
 
-// ======================================================
-// Helper Functions
-// ======================================================
-
+// ... (fetchPaperData function එක මෙතනින් පහළට)
 async function fetchPaperData(examType) {
     let url = '';
     if (examType === 'ol') {
-        url = OL_PAPER_DATA_URL;
+        // Corrected URL:
+        url = "https://raw.githubusercontent.com/MRDofc/MRD-AI-paspaper/main/json/ol-papers.json"; 
     } else if (examType === 'al') {
-        url = AL_PAPER_DATA_URL;
+        url = "https://raw.githubusercontent.com/MRDofc/mrd-ai-al-paper/main/json/al-papers.json";
     } else {
         return null;
     }
@@ -132,4 +129,4 @@ async function fetchPaperData(examType) {
         console.error(`Error fetching ${examType} paper data from ${url}:`, error.message);
         return null;
     }
-                      }
+    }
