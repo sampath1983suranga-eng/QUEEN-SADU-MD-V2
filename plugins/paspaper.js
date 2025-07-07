@@ -60,7 +60,7 @@ async (conn, mek, m, { from, reply }) => {
         }
 
         let subjectMenu = `*සාමාන්‍ය පෙළ (O/L) විෂයන්:*\n\n`;
-        subjectMenu += "*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .olget 1 2022)*\n\n";
+        subjectMenu += "*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .olp 1 2022)*\n\n";
         
         subjects.forEach((subject, index) => {
             // JSON එකේ Year field එකක් නැතිනම් "වසරක් නැත" ලෙස පෙන්වයි
