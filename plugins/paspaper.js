@@ -97,12 +97,12 @@ async (conn, mek, m, { from, reply }) => {
         }
 
         let subjectMenu = `*උසස් පෙළ (A/L) විෂයන්:*\n\n`;
-        subjectMenu += "*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .alget 1 2022)*\n\n";
+        subjectMenu += "*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .alp 1 2022)*\n\n";
         
         subjects.forEach((subject, index) => {
             subjectMenu += `${index + 1}. ${subject.Subject} (${subject.Year ? subject.Year + " දක්වා" : "වසරක් නැත"})\n`;
         });
-        subjectMenu += `\nඋදාහරණ: \`${config.PREFIX}alget 1 2022\` (මෙයින් 1 වන විෂයයේ 2022 ප්‍රශ්න පත්‍රය ලැබේ)`;
+        subjectMenu += `\nඋදාහරණ: \`${config.PREFIX}alp 1 2022\` (මෙයින් 1 වන විෂයයේ 2022 ප්‍රශ්න පත්‍රය ලැබේ)`;
         
         return reply(subjectMenu);
 
@@ -126,7 +126,7 @@ cmd({
 async (conn, mek, m, { from, reply, args }) => {
     // args වල අවම වශයෙන් විෂය අංකය සහ වර්ෂය තිබිය යුතුයි
     if (args.length < 2) {
-        return reply(`භාවිතය: \`${config.PREFIX}olget <විෂය අංකය> <වර්ෂය>\` (උදා: \`${config.PREFIX}olget 1 2022\`)`);
+        return reply(`භාවිතය: \`${config.PREFIX}olp <විෂය අංකය> <වර්ෂය>\` (උදා: \`${config.PREFIX}olp 1 2022\`)`);
     }
 
     const subjectNumber = parseInt(args[0]); // පළමු argument එක විෂය අංකය
@@ -195,7 +195,7 @@ cmd({
 },
 async (conn, mek, m, { from, reply, args }) => {
     if (args.length < 2) {
-        return reply(`භාවිතය: \`${config.PREFIX}alget <විෂය අංකය> <වර්ෂය>\` (උදා: \`${config.PREFIX}alget 1 2022\`)`);
+        return reply(`භාවිතය: \`${config.PREFIX}alget <විෂය අංකය> <වර්ෂය>\` (උදා: \`${config.PREFIX}alp 1 2022\`)`);
     }
 
     const subjectNumber = parseInt(args[0]);
