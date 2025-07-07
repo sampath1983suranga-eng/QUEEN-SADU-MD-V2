@@ -4,7 +4,7 @@ const axios = require('axios')
 const { fetchJson } = require('../lib/functions')
 
 const apilink = 'https://nethu-api.vercel.app/news'
-let wm = '𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐁𝐲 𝐌𝐑𝐃 𝐀𝐈'
+let wm = 'POWERED BY MRD AI' // << මෙතන වෙනස් කර ඇත
 let latestNews = {}
 let newsInterval = null
 let alertEnabled = false
@@ -22,10 +22,10 @@ const newsSites = [
     { name: "Gossip Lanka", url: `${apilink}/gossiplankanews` }
 ]
 
-async function checkAndSendNews(conn, from, isGroup, isOwner) {
+async function checkAndSendNews(conn, from, isGroup) { // isOwner argument එක ඉවත් කර ඇත
     try {
         if (!isGroup) return;
-        if (!isOwner) return;
+        // isOwner / isAdmin check එක මෙතනින් සම්පූර්ණයෙන්ම ඉවත් කර ඇත
 
         for (const site of newsSites) {
             const news = await fetchJson(site.url)
@@ -41,10 +41,18 @@ async function checkAndSendNews(conn, from, isGroup, isOwner) {
             await conn.sendMessage(from, { image: { url: news.result.image || news.result.img || '' }, caption: msg })
 
             if (alertEnabled) {
-                const groupMetadata = await conn.groupMetadata(from)
-                const admins = groupMetadata.participants.filter(p => p.admin !== null).map(a => `@${a.id.split('@')[0]}`)
-                const alertMsg = `🚨 *BREAKING NEWS!* 🚨\n\n${msg}\n\n${admins.join(' ')}`
-                await conn.sendMessage(from, { text: alertMsg, mentions: admins })
+                // Admin alert functionality එකට තවමත් group admins අවශ්‍යයි.
+                // Bot එක group admin නොවේ නම් මෙය වැඩ කරන්නේ නැත.
+                // ඔබට මෙයත් ඉවත් කිරීමට අවශ්‍ය නම්, groupMetadata සහ admins ලබා ගන්නා කොටස ඉවත් කළ යුතුය.
+                // දැනට, bot එක admin නොවේ නම් මෙය error එකක් නොදී pass වනු ඇත.
+                try {
+                    const groupMetadata = await conn.groupMetadata(from)
+                    const admins = groupMetadata.participants.filter(p => p.admin !== null).map(a => `@${a.id.split('@')[0]}`)
+                    const alertMsg = `🚨 *BREAKING NEWS!* 🚨\n\n${msg}\n\n${admins.join(' ')}`
+                    await conn.sendMessage(from, { text: alertMsg, mentions: admins })
+                } catch (adminError) {
+                    console.warn("[PP Plugin] Alert could not be sent (Bot might not be admin or groupMetadata error):", adminError.message);
+                }
             }
         }
     } catch (e) {
@@ -54,37 +62,37 @@ async function checkAndSendNews(conn, from, isGroup, isOwner) {
 
 // .newson Command (Enable Auto News)
 cmd({
-    pattern: "startnews",
+    pattern: "newson",
     alias: ["autonews"],
     react: "🟢",
     desc: "Enable auto news sending",
     category: "news",
     use: '.newson',
     filename: __filename
-}, async (conn, mek, m, { from, isGroup, isOwner, reply }) => {
+}, async (conn, mek, m, { from, isGroup, reply }) => { // isOwner, isAdmin arguments ඉවත් කර ඇත
     if (!isGroup) return reply("❌ *This command can only be used in Groups!*")
-    if (!isOwner) return reply("❌ *This command can only be used by Admins!*")
+    // isOwner / isAdmin check එක මෙතනින් සම්පූර්ණයෙන්ම ඉවත් කර ඇත
 
     if (newsInterval) return reply("✅ *Auto News already enabled!*")
 
     reply("✅ *Auto News enabled.*")
     newsInterval = setInterval(() => {
-        checkAndSendNews(conn, from, isGroup, isOwner)
+        checkAndSendNews(conn, from, isGroup) // isOwner argument එක ඉවත් කර ඇත
     }, 2 * 60 * 1000)
 })
 
 // .newsoff Command (Disable Auto News)
 cmd({
-    pattern: "stopnews",
+    pattern: "newsoff",
     alias: ["stopnews"],
     react: "🔴",
     desc: "Disable auto news sending",
     category: "news",
     use: '.newsoff',
     filename: __filename
-}, async (conn, mek, m, { from, isGroup, isOwner, reply }) => {
+}, async (conn, mek, m, { from, isGroup, reply }) => { // isOwner, isAdmin arguments ඉවත් කර ඇත
     if (!isGroup) return reply("❌ *This command can only be used in Groups!*")
-    if (!isOwner) return reply("❌ *This command can only be used by Admins!*")
+    // isOwner / isAdmin check එක මෙතනින් සම්පූර්ණයෙන්ම ඉවත් කර ඇත
 
     if (newsInterval) {
         clearInterval(newsInterval)
@@ -95,16 +103,16 @@ cmd({
 
 // .alerton Command (Enable Breaking News Alerts)
 cmd({
-    pattern: "newson",
+    pattern: "alerton",
     alias: ["newsalerton"],
     react: "🚨",
     desc: "Enable Breaking News Alerts",
     category: "news",
     use: '.alerton',
     filename: __filename
-}, async (conn, mek, m, { from, isGroup, isOwner, reply }) => {
+}, async (conn, mek, m, { from, isGroup, reply }) => { // isOwner, isAdmin arguments ඉවත් කර ඇත
     if (!isGroup) return reply("❌ *This command can only be used in Groups!*")
-    if (!isOwner) return reply("❌ *This command can only be used by Admins!*")
+    // isOwner / isAdmin check එක මෙතනින් සම්පූර්ණයෙන්ම ඉවත් කර ඇත
 
     alertEnabled = true
     reply("✅ *Breaking News Alerts enabled.*")
@@ -112,16 +120,16 @@ cmd({
 
 // .alertoff Command (Disable Breaking News Alerts)
 cmd({
-    pattern: "newsoff",
+    pattern: "alertoff",
     alias: ["newsalertoff"],
     react: "❌",
     desc: "Disable Breaking News Alerts",
     category: "news",
     use: '.alertoff',
     filename: __filename
-}, async (conn, mek, m, { from, isGroup, isOwner, reply }) => {
+}, async (conn, mek, m, { from, isGroup, reply }) => { // isOwner, isAdmin arguments ඉවත් කර ඇත
     if (!isGroup) return reply("❌ *This command can only be used in Groups or Channels!*")
-    if (!isOwner) return reply("❌ *This command can only be used by Admins!*")
+    // isOwner / isAdmin check එක මෙතනින් සම්පූර්ණයෙන්ම ඉවත් කර ඇත
 
     alertEnabled = false
     reply("🛑 *Breaking News Alerts disabled!*")
