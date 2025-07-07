@@ -87,7 +87,7 @@ module.exports = {
                 olSubjects.forEach((subject, index) => {
                     subjectMenu += `${index + 1}. ${subject.Subject} (${subject.Year ? subject.Year + " දක්වා" : "වසරක් නැත"})\n`;
                 });
-                subjectMenu += `\n*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .olget 1 2022)*`;
+                subjectMenu += `\n*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .olp 1 2022)*`;
                 await reply(subjectMenu);
             }
         },
@@ -105,12 +105,12 @@ module.exports = {
                 alSubjects.forEach((subject, index) => {
                     subjectMenu += `${index + 1}. ${subject.Subject} (${subject.Year ? subject.Year + " දක්වා" : "වසරක් නැත"})\n`;
                 });
-                subjectMenu += `\n*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .alget 1 2022)*`;
+                subjectMenu += `\n*අවශ්‍ය විෂය ඉදිරියෙන් ඇති අංකය type කර, අංකයට ඉදිරියෙන් අවශ්‍ය වර්ෂය එක් කර එවන්න. (උදා: .alp 1 2022)*`;
                 await reply(subjectMenu);
             }
         },
         {
-            name: 'olget',
+            name: 'olp',
             command: ['olget'],
             category: 'Past Papers',
             description: 'Get a specific O/L past paper. Usage: .olget <subject_number> <year>',
