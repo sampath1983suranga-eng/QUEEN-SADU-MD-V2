@@ -4,7 +4,7 @@ const axios = require('axios')
 const { fetchJson } = require('../lib/functions')
 
 const apilink = 'https://nethu-api.vercel.app/news'
-let wm = 'Creater Nethmika Kaushalya'
+let wm = '𝐏𝐨𝐰𝐞𝐫𝐞𝐝 𝐁𝐲 𝐌𝐑𝐃 𝐀𝐈'
 let latestNews = {}
 let newsInterval = null
 let alertEnabled = false
@@ -54,7 +54,7 @@ async function checkAndSendNews(conn, from, isGroup, isOwner) {
 
 // .newson Command (Enable Auto News)
 cmd({
-    pattern: "newson",
+    pattern: "startnews",
     alias: ["autonews"],
     react: "🟢",
     desc: "Enable auto news sending",
@@ -75,7 +75,7 @@ cmd({
 
 // .newsoff Command (Disable Auto News)
 cmd({
-    pattern: "newsoff",
+    pattern: "stopnews",
     alias: ["stopnews"],
     react: "🔴",
     desc: "Disable auto news sending",
@@ -95,7 +95,7 @@ cmd({
 
 // .alerton Command (Enable Breaking News Alerts)
 cmd({
-    pattern: "alerton",
+    pattern: "newson",
     alias: ["newsalerton"],
     react: "🚨",
     desc: "Enable Breaking News Alerts",
@@ -112,7 +112,7 @@ cmd({
 
 // .alertoff Command (Disable Breaking News Alerts)
 cmd({
-    pattern: "alertoff",
+    pattern: "newsoff",
     alias: ["newsalertoff"],
     react: "❌",
     desc: "Disable Breaking News Alerts",
