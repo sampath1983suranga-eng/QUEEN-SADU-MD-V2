@@ -1,226 +1,135 @@
 [
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "සිංහල",
-    "province": "",
-    "file": "https://files.catbox.moe/w30imt.pdf"
+    "Subject": "සිංහල",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/w30imt.pdf",
+      "2017": "https://files.catbox.moe/31g04o.pdf",
+      "2018": "https://files.catbox.moe/dmg60j.pdf"
+    },
+    "Year": "2016-2018"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "තාක්ෂණවේදය", 
-    "year": "2016",
-    "subject": "ICT",
-    "province": "",
-    "file": "https://files.catbox.moe/tqt58w.pdf"
+    "Subject": "ICT",
+    "Category": "තාක්ෂණවේදය",
+    "Years": {
+      "2016": "https://files.catbox.moe/tqt58w.pdf"
+    },
+    "Year": "2016"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "දේශපාලන විද්‍යාව",
-    "province": "",
-    "file": "https://files.catbox.moe/27rprh.pdf"
+    "Subject": "දේශපාලන විද්‍යාව",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/27rprh.pdf",
+      "2017": "https://files.catbox.moe/hhb4cs.pdf",
+      "2018": "https://files.catbox.moe/fdz7rf.pdf"
+    },
+    "Year": "2016-2018"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "භූ ගෝල විද්‍යාව",
-    "province": "",
-    "file": "https://files.catbox.moe/hjqv1j.pdf"
+    "Subject": "භූ ගෝල විද්‍යාව",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/hjqv1j.pdf",
+      "2017": "https://files.catbox.moe/2fsksk.pdf",
+      "2018": "https://files.catbox.moe/gws8n9.pdf"
+    },
+    "Year": "2016-2018"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "බෞද්ධ ශිෂ්ටාචාරය",
-    "province": "",
-    "file": "https://files.catbox.moe/zemtkk.pdf"
+    "Subject": "බෞද්ධ ශිෂ්ටාචාරය",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/zemtkk.pdf",
+      "2017": "https://files.catbox.moe/efrak8.pdf",
+      "2018": "https://files.catbox.moe/huqila.pdf"
+    },
+    "Year": "2016-2018"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "සන්නිවේදනය",
-    "province": "",
-    "file": "https://files.catbox.moe/nbvrky.pdf"
+    "Subject": "සන්නිවේදනය",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/nbvrky.pdf",
+      "2018": "https://files.catbox.moe/sw14f3.pdf"
+    },
+    "Year": "2016-2018"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "සංගීතය",
-    "province": "",
-    "file": "https://files.catbox.moe/m8tlwf.pdf"
+    "Subject": "සංගීතය",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/m8tlwf.pdf"
+    },
+    "Year": "2016"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "චිත්‍ර කලාව",
-    "province": "",
-    "file": "https://files.catbox.moe/hvkbo8.pdf"
+    "Subject": "චිත්‍ර කලාව",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/hvkbo8.pdf"
+    },
+    "Year": "2016"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "නැටුම්",
-    "province": "",
-    "file": "https://files.catbox.moe/msn0zp.pdf"
+    "Subject": "නැටුම්",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/msn0zp.pdf"
+    },
+    "Year": "2016"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා", 
-    "year": "2016",
-    "subject": "ඉතිහාසය",
-    "province": "",
-    "file": "https://files.catbox.moe/s4gu3h.pdf"
+    "Subject": "ඉතිහාසය",
+    "Category": "කලා",
+    "Years": {
+      "2016": "https://files.catbox.moe/s4gu3h.pdf",
+      "2017": "https://files.catbox.moe/4e4gzw.pdf",
+      "2018": "https://files.catbox.moe/1q1n6d.pdf"
+    },
+    "Year": "2016-2018"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "තාක්ෂණවේදය", 
-    "year": "2016",
-    "subject": "තොරතුරු හා සන්නිවේදනය",
-    "province": "",
-    "file": "https://files.catbox.moe/xpciyt.pdf"
+    "Subject": "තොරතුරු හා සන්නිවේදනය",
+    "Category": "තාක්ෂණවේදය",
+    "Years": {
+      "2016": "https://files.catbox.moe/xpciyt.pdf"
+    },
+    "Year": "2016"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "Logic Science",
-    "province": "",
-    "file": "https://files.catbox.moe/nj5x83.pdf"
+    "Subject": "Logic Science",
+    "Category": "කලා",
+    "Years": {
+      "2017": "https://files.catbox.moe/nj5x83.pdf"
+    },
+    "Year": "2017"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "තර්ක ශාස්ත්‍රය",
-    "province": "",
-    "file": "https://files.catbox.moe/myo17t.pdf"
+    "Subject": "තර්ක ශාස්ත්‍රය",
+    "Category": "කලා",
+    "Years": {
+      "2017": "https://files.catbox.moe/myo17t.pdf",
+      "2018": "https://files.catbox.moe/lyv2ej.pdf"
+    },
+    "Year": "2017-2018"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "බෞද්ධ ශිෂ්ටාචාරය",
-    "province": "",
-    "file": "https://files.catbox.moe/efrak8.pdf"
+    "Subject": "සිංහල 2",
+    "Category": "කලා",
+    "Years": {
+      "2017": "https://files.catbox.moe/w30imt.pdf"
+    },
+    "Year": "2017"
   },
   {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "සිංහල",
-    "province": "",
-    "file": "https://files.catbox.moe/31g04o.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "භූ ගෝල විද්‍යාව",
-    "province": "",
-    "file": "https://files.catbox.moe/2fsksk.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "ඉතිහාසය",
-    "province": "",
-    "file": "https://files.catbox.moe/4e4gzw.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "සිංහල 2",
-    "province": "",
-    "file": "https://files.catbox.moe/w30imt.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "දේශපාලන විද්‍යාව",
-    "province": "",
-    "file": "https://files.catbox.moe/hhb4cs.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2017",
-    "subject": "ආර්ථික විද්‍යාව",
-    "province": "",
-    "file": "https://files.catbox.moe/x0xcka.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2018",
-    "subject": "භූ ගෝල විද්‍යාව",
-    "province": "",
-    "file": "https://files.catbox.moe/gws8n9.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2018",
-    "subject": "බෞද්ධ ශිෂ්ටාචාරය",
-    "province": "",
-    "file": "https://files.catbox.moe/huqila.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2018",
-    "subject": "ආර්ථික විද්‍යාව",
-    "province": "",
-    "file": "https://files.catbox.moe/1ja7cg.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2018",
-    "subject": "ඉතිහාසය",
-    "province": "",
-    "file": "https://files.catbox.moe/1q1n6d.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2018",
-    "subject": "තර්ක ශාස්ත්‍රය",
-    "province": "",
-    "file": "https://files.catbox.moe/lyv2ej.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2018",
-    "subject": "සන්නිවේදනය",
-    "province": "",
-    "file": "https://files.catbox.moe/sw14f3.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2018",
-    "subject": "සිංහල",
-    "province": "",
-    "file": "https://files.catbox.moe/dmg60j.pdf"
-  },
-  {
-    "grade": "උසස් පෙළ",
-    "category": "කලා",
-    "year": "2018",
-    "subject": "දේශපාලන විද්‍යාව",
-    "province": "",
-    "file": "https://files.catbox.moe/fdz7rf.pdf"
+    "Subject": "ආර්ථික විද්‍යාව",
+    "Category": "කලා",
+    "Years": {
+      "2017": "https://files.catbox.moe/x0xcka.pdf",
+      "2018": "https://files.catbox.moe/1ja7cg.pdf"
+    },
+    "Year": "2017-2018"
   }
 ]
