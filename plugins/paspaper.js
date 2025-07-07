@@ -66,7 +66,7 @@ async (conn, mek, m, { from, reply }) => {
             // JSON එකේ Year field එකක් නැතිනම් "වසරක් නැත" ලෙස පෙන්වයි
             subjectMenu += `${index + 1}. ${subject.Subject} (${subject.Year ? subject.Year + " දක්වා" : "වසරක් නැත"})\n`;
         });
-        subjectMenu += `\nඋදාහරණ: \`${config.PREFIX}olget 1 2022\` (මෙයින් 1 වන විෂයයේ 2022 ප්‍රශ්න පත්‍රය ලැබේ)`;
+        subjectMenu += `\nඋදාහරණ: \`${config.PREFIX}olp 1 2022\` (මෙයින් 1 වන විෂයයේ 2022 ප්‍රශ්න පත්‍රය ලැබේ)`;
         
         return reply(subjectMenu);
 
