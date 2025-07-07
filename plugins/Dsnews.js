@@ -1,155 +1,128 @@
-const { cmd } = require('../command');
-const Hiru = require('hirunews-scrap');
-const Esana = require('@sl-code-lords/esana-news');
-const config = require('../config');
+const config = require('../config')
+const { cmd } = require('../command')
+const axios = require('axios')
+const { fetchJson } = require('../lib/functions')
 
-let activeGroups = {};
-let lastNewsTitles = {};
+const apilink = 'https://nethu-api.vercel.app/news'
+let wm = 'Creater Nethmika Kaushalya'
+let latestNews = {}
+let newsInterval = null
+let alertEnabled = false
 
-// MP4 short looping videos with gif effect
-const gifStyleVideos = [
-    "https://files.catbox.moe/u8r3o9.mp4",
-    "https://files.catbox.moe/9m5wx6.mp4"
-];
+const newsSites = [
+    { name: "Hiru", url: `${apilink}/hiru` },
+    { name: "Derana", url: `${apilink}/derana` },
+    { name: "BBC", url: `${apilink}/bbc` },
+    { name: "Lankadeepa", url: `${apilink}/lankadeepa` },
+    { name: "ITN", url: `${apilink}/itn` },
+    { name: "Siyatha", url: `${apilink}/siyatha` },
+    { name: "Neth News", url: `${apilink}/nethnews` },
+    { name: "LNW", url: `${apilink}/lnw` },
+    { name: "Dasatha Lanka", url: `${apilink}/dasathalankanews` },
+    { name: "Gossip Lanka", url: `${apilink}/gossiplankanews` }
+]
 
-function getRandomGifVideo() {
-    return gifStyleVideos[Math.floor(Math.random() * gifStyleVideos.length)];
-}
-
-async function getLatestNews() {
-    let newsData = [];
-
+async function checkAndSendNews(conn, from, isGroup, isOwner) {
     try {
-        const hiruApi = new Hiru();
-        const hiruNews = await hiruApi.BreakingNews();
-        newsData.push({
-            title: hiruNews.results.title,
-            content: hiruNews.results.news,
-            date: hiruNews.results.date
-        });
-    } catch (err) {
-        console.error(`Error fetching Hiru News: ${err.message}`);
-    }
+        if (!isGroup) return;
+        if (!isOwner) return;
 
-    try {
-        const esanaApi = new Esana();
-        const esanaNews = await esanaApi.getLatestNews();
-        if (esanaNews?.title && esanaNews?.description && esanaNews?.publishedAt) {
-            newsData.push({
-                title: esanaNews.title,
-                content: esanaNews.description,
-                date: esanaNews.publishedAt
-            });
-        }
-    } catch (err) {
-        console.error(`Error fetching Esana News: ${err.message}`);
-    }
+        for (const site of newsSites) {
+            const news = await fetchJson(site.url)
+            if (!news || !news.result || !news.result.title) continue
 
-    return newsData;
-}
+            const newTitle = news.result.title
+            if (latestNews[site.name] === newTitle) continue 
 
-async function checkAndPostNews(conn, groupId) {
-    const latestNews = await getLatestNews();
+            latestNews[site.name] = newTitle 
 
-    latestNews.forEach(async (newsItem) => {
-        if (!lastNewsTitles[groupId]) lastNewsTitles[groupId] = [];
+            const msg = `*🚨 ${news.result.title} (${site.name})*\n\n*${news.result.date}*\n\n${news.result.desc}\n\n${news.result.link || news.result.url}\n\n${wm}`
 
-        if (!lastNewsTitles[groupId].includes(newsItem.title)) {
-            const gifVideo = getRandomGifVideo();
-            const caption = `*🔵 𝐍𝐄𝐖𝐒 𝐀𝐋𝐄𝐑𝐓!*\n▁ ▂ ▄ ▅ ▆ ▇ █ [  ] █ ▇ ▆ ▅ ▄ ▂ ▁\n\n📰 *${newsItem.title}*\n\n${newsItem.content}\n\n${newsItem.date}\n\n> *©ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴍʀ ᴅɪɴᴇꜱʜ ᴏꜰᴄ*\n> *QUEEN-SADU-MD & D-XTRO-MD*`;
+            await conn.sendMessage(from, { image: { url: news.result.image || news.result.img || '' }, caption: msg })
 
-            try {
-                await conn.sendMessage(groupId, {
-                    video: { url: gifVideo },
-                    caption,
-                    mimetype: "video/mp4",
-                    gifPlayback: true
-                });
-
-                lastNewsTitles[groupId].push(newsItem.title);
-                if (lastNewsTitles[groupId].length > 100) lastNewsTitles[groupId].shift();
-
-            } catch (e) {
-                console.error(`Failed to send video message: ${e.message}`);
+            if (alertEnabled) {
+                const groupMetadata = await conn.groupMetadata(from)
+                const admins = groupMetadata.participants.filter(p => p.admin !== null).map(a => `@${a.id.split('@')[0]}`)
+                const alertMsg = `🚨 *BREAKING NEWS!* 🚨\n\n${msg}\n\n${admins.join(' ')}`
+                await conn.sendMessage(from, { text: alertMsg, mentions: admins })
             }
-        }
-    });
-}
-
-cmd({
-    pattern: "startnews",
-    desc: "Enable Sri Lankan news updates in this group",
-    isGroup: true,
-    react: "📰",
-    filename: __filename
-}, async (conn, mek, m, { from, isGroup, participants }) => {
-    try {
-        if (isGroup) {
-            const isAdmin = participants.some(p => p.id === mek.sender && p.admin);
-            const isBotOwner = mek.sender === conn.user.jid;
-
-            if (isAdmin || isBotOwner) {
-                if (!activeGroups[from]) {
-                    activeGroups[from] = true;
-
-                    await conn.sendMessage(from, { text: "🇱🇰 Auto 24/7 News Activated.\n\n> QUEEN-SADU-MD & D-XTRO-MD" });
-
-                    if (!activeGroups['interval']) {
-                        activeGroups['interval'] = setInterval(async () => {
-                            for (const groupId in activeGroups) {
-                                if (activeGroups[groupId] && groupId !== 'interval') {
-                                    await checkAndPostNews(conn, groupId);
-                                }
-                            }
-                        }, 60000);
-                    }
-                } else {
-                    await conn.sendMessage(from, { text: "*✅ 24/7 News Already Activated.*\n\n> QUEEN-SADU-MD & D-XTRO-MD" });
-                }
-            } else {
-                await conn.sendMessage(from, { text: "🚫 Only group admins or bot owner can use this command." });
-            }
-        } else {
-            await conn.sendMessage(from, { text: "This command can only be used in groups." });
         }
     } catch (e) {
-        console.error(`Error in startnews command: ${e.message}`);
-        await conn.sendMessage(from, { text: "Failed to activate news service." });
+        console.log(e)
     }
-});
+}
 
+// .newson Command (Enable Auto News)
 cmd({
-    pattern: "stopnews",
-    desc: "Disable Sri Lankan news updates in this group",
-    isGroup: true,
-    react: "🛑",
+    pattern: "newson",
+    alias: ["autonews"],
+    react: "🟢",
+    desc: "Enable auto news sending",
+    category: "news",
+    use: '.newson',
     filename: __filename
-}, async (conn, mek, m, { from, isGroup, participants }) => {
-    try {
-        if (isGroup) {
-            const isAdmin = participants.some(p => p.id === mek.sender && p.admin);
-            const isBotOwner = mek.sender === conn.user.jid;
+}, async (conn, mek, m, { from, isGroup, isOwner, reply }) => {
+    if (!isGroup) return reply("❌ *This command can only be used in Groups!*")
+    if (!isOwner) return reply("❌ *This command can only be used by Admins!*")
 
-            if (isAdmin || isBotOwner) {
-                if (activeGroups[from]) {
-                    delete activeGroups[from];
-                    await conn.sendMessage(from, { text: "*🛑 News updates disabled in this group*" });
+    if (newsInterval) return reply("✅ *Auto News already enabled!*")
 
-                    if (Object.keys(activeGroups).length === 1 && activeGroups['interval']) {
-                        clearInterval(activeGroups['interval']);
-                        delete activeGroups['interval'];
-                    }
-                } else {
-                    await conn.sendMessage(from, { text: "⚠️ News updates not active in this group." });
-                }
-            } else {
-                await conn.sendMessage(from, { text: "🚫 Only group admins or bot owner can use this command." });
-            }
-        } else {
-            await conn.sendMessage(from, { text: "This command can only be used in groups." });
-        }
-    } catch (e) {
-        console.error(`Error in stopnews command: ${e.message}`);
-        await conn.sendMessage(from, { text: "Failed to deactivate news service." });
+    reply("✅ *Auto News enabled.*")
+    newsInterval = setInterval(() => {
+        checkAndSendNews(conn, from, isGroup, isOwner)
+    }, 2 * 60 * 1000)
+})
+
+// .newsoff Command (Disable Auto News)
+cmd({
+    pattern: "newsoff",
+    alias: ["stopnews"],
+    react: "🔴",
+    desc: "Disable auto news sending",
+    category: "news",
+    use: '.newsoff',
+    filename: __filename
+}, async (conn, mek, m, { from, isGroup, isOwner, reply }) => {
+    if (!isGroup) return reply("❌ *This command can only be used in Groups!*")
+    if (!isOwner) return reply("❌ *This command can only be used by Admins!*")
+
+    if (newsInterval) {
+        clearInterval(newsInterval)
+        newsInterval = null
     }
-});
+    reply("🛑 *Auto News disabled!*")
+})
+
+// .alerton Command (Enable Breaking News Alerts)
+cmd({
+    pattern: "alerton",
+    alias: ["newsalerton"],
+    react: "🚨",
+    desc: "Enable Breaking News Alerts",
+    category: "news",
+    use: '.alerton',
+    filename: __filename
+}, async (conn, mek, m, { from, isGroup, isOwner, reply }) => {
+    if (!isGroup) return reply("❌ *This command can only be used in Groups!*")
+    if (!isOwner) return reply("❌ *This command can only be used by Admins!*")
+
+    alertEnabled = true
+    reply("✅ *Breaking News Alerts enabled.*")
+})
+
+// .alertoff Command (Disable Breaking News Alerts)
+cmd({
+    pattern: "alertoff",
+    alias: ["newsalertoff"],
+    react: "❌",
+    desc: "Disable Breaking News Alerts",
+    category: "news",
+    use: '.alertoff',
+    filename: __filename
+}, async (conn, mek, m, { from, isGroup, isOwner, reply }) => {
+    if (!isGroup) return reply("❌ *This command can only be used in Groups or Channels!*")
+    if (!isOwner) return reply("❌ *This command can only be used by Admins!*")
+
+    alertEnabled = false
+    reply("🛑 *Breaking News Alerts disabled!*")
+})
