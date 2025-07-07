@@ -1,0 +1,57 @@
+# render.yaml
+
+# This is a Render Blueprint that defines how to deploy your WhatsApp bot.
+# Place this file in the root directory of your GitHub repository.
+
+services:
+  - type: web
+    name: whatsapp-bot # Your service name (can be anything descriptive)
+    env: python       # Change this to 'node', 'docker', 'go', etc., based on your bot's language/runtime
+    plan: starter     # You can change this to 'free' or 'pro' based on your Render plan. 
+                      # 'starter' is usually a good default for small bots.
+
+    # Build command to install dependencies. Adjust based on your project.
+    # For Python:
+    buildCommand: pip install -r requirements.txt
+    # For Node.js:
+    # buildCommand: npm install
+
+    # Start command to run your bot. Adjust based on your project.
+    # For Python (assuming your main script is app.py):
+    startCommand: python app.py
+    # For Node.js (assuming your main script is index.js):
+    # startCommand: node index.js
+
+    # Environment variables required for your bot to run.
+    # These will be presented as input fields on the Render deploy page.
+    envVars:
+      - key: PHONE_NUMBER
+        value: "" # Leave this empty. User will fill it during deployment.
+        sync: false
+        # User-friendly description for the input field on the Render deploy page.
+        description: "ඔබගේ WhatsApp bot සඳහා දුරකථන අංකය (රට කේතය සමඟ, උදා: 94712345678)."
+
+      - key: SESSION_ID
+        value: "" # Leave this empty. User will fill it during deployment.
+        sync: false
+        # User-friendly description for the input field on the Render deploy page.
+        description: "ඔබගේ WhatsApp bot හි Session ID එක. මෙය ඔබට bot පුස්තකාලය මගින් ලැබෙනවා."
+
+      # Add any other environment variables your bot needs here.
+      # For example, if you're using Twilio for WhatsApp:
+      # - key: TWILIO_ACCOUNT_SID
+      #   value: ""
+      #   sync: false
+      #   description: "ඔබගේ Twilio Account SID"
+      # - key: TWILIO_AUTH_TOKEN
+      #   value: ""
+      #   sync: false
+      #   description: "ඔබගේ Twilio Auth Token"
+      # - key: TWILIO_PHONE_NUMBER
+      #   value: ""
+      #   sync: false
+      #   description: "ඔබගේ Twilio WhatsApp දුරකථන අංකය"
+
+    # Health check for the service (optional but recommended for web services)
+    # This checks if your bot's web service is responding.
+    healthCheckPath: /health # Change this if your app has a different health check endpoint
