@@ -15,13 +15,24 @@ try {
     quizQuestions = []; 
 }
 
+// Quiz answers (explanations) JSON file එක load කරගැනීම
+const QUIZ_ANSWERS_FILE = path.join(__dirname, '../data/quiz_answers.json'); 
+let quizExplanations = {}; // { correct_answer_letter: "Explanation text" }
+try {
+    quizExplanations = JSON.parse(fs.readFileSync(QUIZ_ANSWERS_FILE, 'utf8'));
+} catch (error) {
+    console.error(`Error loading quiz_answers.json from ${QUIZ_ANSWERS_FILE}:`, error.message);
+    quizExplanations = {};
+}
+
 // Quiz ක්‍රියාත්මක වන group JID එක ගබඩා කිරීමට
 const QUIZ_STATE_FILE = path.join(__dirname, '../data/quiz_state.json'); 
 let quizEnabledGroupJid = null;
 let quizIntervalId = null;
-let currentQuizQuestionIndex = -1; 
-let activeQuizMessageId = null; // Poll message එකේ ID එක ගබඩා කිරීමට
-let quizScore = {}; // { participantJid: score }
+let currentQuizQuestionIndex = -1; // දැනට ක්‍රියාත්මක ප්‍රශ්නයේ index එක
+let activeQuizQuestionJid = null; // ප්‍රශ්නය යැවූ JID
+let activeQuizQuestionMessageId = null; // ප්‍රශ්න message එකේ ID එක (quoted reply සඳහා)
+let answeredParticipants = new Set(); // දැනට ක්‍රියාත්මක ප්‍රශ්නයට පිළිතුරු දුන් අයගේ JIDs
 
 // Bot start වන විට, කලින් තිබූ state එක load කරගැනීම
 function loadQuizState() {
@@ -75,11 +86,25 @@ function startQuizInterval(conn, jid) {
 }
 
 // Bot start වන විට state එක load කරන්න
-loadQuizState();
+// Note: This is now called explicitly in index.js on connection open.
+// loadQuizState(); // This line can be removed as it's called from index.js
+
+// --- Helper Functions ---
+
+function getContentType(message) {
+    if (message.imageMessage) return 'imageMessage';
+    if (message.videoMessage) return 'videoMessage';
+    if (message.extendedTextMessage) return 'extendedTextMessage';
+    if (message.buttonsResponseMessage) return 'buttonsResponseMessage';
+    if (message.listResponseMessage) return 'listResponseMessage';
+    if (message.templateButtonReplyMessage) return 'templateButtonReplyMessage';
+    if (message.text) return 'text';
+    return null;
+}
 
 // --- Quiz Commands ---
 
-// ප්‍රශ්නයක් Poll එකක් ලෙස යැවීම සඳහා වන function එක
+// ප්‍රශ්නයක් text එකක් ලෙස යැවීම සඳහා වන function එක
 async function sendQuizQuestion(conn, jid) {
     if (quizQuestions.length === 0) {
         await conn.sendMessage(jid, { text: "මට පෙන්වීමට ප්‍රශ්න නැත. කරුණාකර quiz_questions.json ගොනුව නිවැරදිව සකසා ඇති බවට තහවුරු කරන්න." });
@@ -89,20 +114,18 @@ async function sendQuizQuestion(conn, jid) {
     currentQuizQuestionIndex = Math.floor(Math.random() * quizQuestions.length);
     const questionData = quizQuestions[currentQuizQuestionIndex];
 
-    const pollOptions = questionData.options.map(option => ({ optionName: option }));
+    let quizMessage = `*ප්‍රශ්නය:* ${questionData.question}\n\n`;
+    questionData.options.forEach((option, index) => {
+        quizMessage += `${String.fromCharCode(65 + index)}. ${option}\n`; // A. Option1, B. Option2, ... E. Option5
+    });
+    quizMessage += "\n*නිවැරදි පිළිතුරේ අකුර (A, B, C, D, E) type කරන්න.*";
 
-    const pollMessage = {
-        poll: {
-            name: questionData.question,
-            values: pollOptions,
-            selectableOptionsCount: 1 // එක් පිළිතුරක් පමණක් තෝරා ගැනීමට ඉඩ දෙන්න
-        }
-    };
-
-    const sentMsg = await conn.sendMessage(jid, pollMessage);
-    activeQuizMessageId = sentMsg.key.id; // යවන ලද poll message එකේ ID එක ගබඩා කරන්න
-    quizScore = {}; // අලුත් ප්‍රශ්නයක් එවන විට score reset කරන්න
-    console.log(`Sent quiz question (Poll) to ${jid}. Question index: ${currentQuizQuestionIndex}, Message ID: ${activeQuizMessageId}`);
+    const sentMsg = await conn.sendMessage(jid, { text: quizMessage });
+    
+    activeQuizQuestionJid = jid;
+    activeQuizQuestionMessageId = sentMsg.key.id; // ප්‍රශ්න message එකේ ID එක ගබඩා කරන්න
+    answeredParticipants.clear(); // අලුත් ප්‍රශ්නයක් එවන විට පිළිතුරු දුන් අයගේ ලැයිස්තුව clear කරන්න
+    console.log(`Sent quiz question (Text) to ${jid}. Question index: ${currentQuizQuestionIndex}, Message ID: ${activeQuizQuestionMessageId}`);
     return true; 
 }
 
@@ -159,8 +182,9 @@ async(conn, mek, m,{from, isGroup, reply, isOwner}) => {
         quizIntervalId = null;
     }
     quizEnabledGroupJid = null;
-    activeQuizMessageId = null; // Stop කරන විට active quiz message එකත් remove කරන්න
-    quizScore = {}; // Stop කරන විට score reset කරන්න
+    activeQuizQuestionJid = null;
+    activeQuizQuestionMessageId = null;
+    answeredParticipants.clear(); 
     saveQuizState(); 
 
     reply("🛑 *MR D AI Quiz එක නවත්වන ලදී.*");
@@ -186,71 +210,85 @@ async(conn, mek, m,{from, isGroup, reply}) => {
     }
 });
 
-// --- Poll Vote Handling Function (මෙය index.js වෙතින් කැඳවනු ලැබේ) ---
-async function handlePollVote(conn, update) {
-    if (!quizEnabledGroupJid || !activeQuizMessageId || currentQuizQuestionIndex === -1) {
-        // Quiz active නැතිනම් හෝ ප්‍රශ්නයක් යවා නොමැති නම් ignore කරන්න
-        return;
+
+// --- Incoming Message Handler (index.js වෙතින් කැඳවනු ලැබේ) ---
+// මෙම function එක ලැබෙන සියලු messages handle කරයි
+async function handleIncomingMessage(conn, mek) {
+    if (!mek.message) return;
+    if (mek.key.remoteJid === 'status@broadcast') return;
+    if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return; // Baileys internal messages
+
+    const from = mek.key.remoteJid;
+    const isGroup = from.endsWith('@g.us');
+    const sender = mek.key.fromMe ? (conn.user.id.includes(':') ? conn.user.id.split(':')[0] + '@s.whatsapp.net' : conn.user.id) : (mek.key.participant || from);
+    const botNumber = conn.user.id.includes(':') ? conn.user.id.split(':')[0] : conn.user.id.split('@')[0];
+    const fromMe = mek.key.fromMe;
+
+    const messageType = getContentType(mek.message);
+    let body = '';
+    
+    // Extract message text content
+    if (messageType === 'extendedTextMessage') {
+        body = mek.message.extendedTextMessage.text;
+    } else if (messageType === 'buttonsResponseMessage') {
+        body = mek.message.buttonsResponseMessage.selectedButtonId;
+    } else if (messageType === 'listResponseMessage') {
+        body = mek.message.listResponseMessage.singleSelectReply.selectedRowId;
+    } else if (messageType === 'templateButtonReplyMessage') {
+        body = mek.message.templateButtonReplyMessage.selectedId;
+    } else if (messageType === 'imageMessage' && mek.message.imageMessage.caption) {
+        body = mek.message.imageMessage.caption;
+    } else if (messageType === 'videoMessage' && mek.message.videoMessage.caption) {
+        body = mek.message.videoMessage.caption;
+    } else if (messageType === 'documentMessage' && mek.message.documentMessage.caption) {
+        body = mek.message.documentMessage.caption;
+    } else if (messageType === 'text') {
+        body = mek.message.text;
     }
 
-    // අදාළ group එකෙන් සහ message එකෙන්දැයි පරීක්ෂා කරන්න
-    if (update.pollUpdates[0] && update.pollUpdates[0].pollId === activeQuizMessageId && update.id === quizEnabledGroupJid) {
-        const pollUpdate = update.pollUpdates[0];
-        const voterJid = pollUpdate.voter; // ಮತය දුන් පුද්ගලයාගේ JID එක
-        const selectedOptions = pollUpdate.selectedOptions; // තෝරාගත් options
-
-        if (selectedOptions.length === 0) {
-            // තේරීමක් ඉවත් කළා නම් (unvote)
-            return;
+    // Only process if a quiz is active and it's from the correct group
+    // Also ensure it's not a command message (assuming commands start with a prefix)
+    // global.config?.PREFIX යනු prefix එක global.config object එකෙන් ලබා ගැනීමට උත්සාහ කරයි
+    const isCommand = body.startsWith(global.config?.PREFIX || '!'); 
+    
+    // Quiz ක්‍රියාත්මක වන group එකෙන්, Bot ගෙන් නොවන, command එකක් නොවන message එකක් නම්
+    if (isGroup && quizEnabledGroupJid === from && currentQuizQuestionIndex !== -1 && !fromMe && !isCommand) {
+        // Check if the participant has already answered this question
+        if (answeredParticipants.has(sender)) {
+            console.log(`Participant ${sender} has already answered for this quiz question. Ignoring.`);
+            return; // Already answered, ignore duplicate
         }
-
-        // තෝරාගත් පිළිතුරේ index එක ලබා ගැනීම (පළමු option එක පමණක් සලකනු ලැබේ)
-        const selectedOptionBuffer = selectedOptions[0];
-        const selectedOption = Buffer.from(selectedOptionBuffer).toString('utf8');
 
         const questionData = quizQuestions[currentQuizQuestionIndex];
-        let userAnswerIndex = -1;
-        // තෝරාගත් option එක, මුල් options සමග සසඳා index එක සොයා ගැනීම
-        for (let i = 0; i < questionData.options.length; i++) {
-            if (questionData.options[i] === selectedOption) {
-                userAnswerIndex = i;
-                break;
-            }
-        }
+        const correctAnswerIndex = questionData.answer_index;
+        const correctAnswerLetter = String.fromCharCode(65 + correctAnswerIndex); // "A", "B", "C", "D", "E" වැනි
 
-        if (userAnswerIndex === -1) {
-            console.warn(`Could not find selected option '${selectedOption}' in quiz options.`);
-            return;
-        }
-        
-        const isCorrect = (userAnswerIndex === questionData.answer_index);
-        const userName = quizScore[voterJid] ? quizScore[voterJid].name : (await conn.getName(voterJid)); // Name එක ලබාගන්න
+        // User's answer, trimmed and converted to uppercase for case-insensitive comparison
+        const userAnswer = body.trim().toUpperCase();
 
-        let replyMessage = "";
-        if (isCorrect) {
-            if (!quizScore[voterJid]) {
-                quizScore[voterJid] = { name: userName, score: 0 };
-            }
-            quizScore[voterJid].score++;
-            replyMessage = `🎉 *${userName}* නිවැරදි පිළිතුර තෝරාගත්තා!\n\n_ඔබගේ මුළු ලකුණු: ${quizScore[voterJid].score}_\n\n*පැහැදිලි කිරීම:* ${questionData.explanation}`;
+        if (userAnswer === correctAnswerLetter) {
+            // Correct Answer
+            const userName = await conn.getName(sender);
+            // quizExplanations object එකෙන් නිවැරදි පිළිතුරට අදාළ පැහැදිලි කිරීම ලබා ගැනීම
+            const explanationText = quizExplanations[correctAnswerLetter] || "ඔබගේ පිළිතුර නිවැරදියි!";
+            
+            // Reply message එක "User Name, ඔබගේ පිළිතුර නිවැරදියි! [Explanation]" format එකට සකස් කිරීම
+            const replyMessage = `🎉 *${userName}*, ඔබගේ පිළිතුර නිවැරදියි! ${explanationText}`;
+
+            await conn.sendMessage(from, { text: replyMessage }, { 
+                quoted: { 
+                    key: { remoteJid: from, id: activeQuizQuestionMessageId }, 
+                    message: { conversation: questionData.question } // Quoted message is the original question
+                } 
+            });
+
+            // Add participant to the set of answered participants for this question
+            answeredParticipants.add(sender);
+            console.log(`Correct answer from ${userName} (${sender}). Explanation: ${explanationText}`);
         } else {
-            const correctAnswerText = questionData.options[questionData.answer_index];
-            replyMessage = `❌ *${userName}* වැරදි පිළිතුරක් තෝරාගත්තා.\nනිවැරදි පිළිතුර වන්නේ: *${String.fromCharCode(65 + questionData.answer_index)}. ${correctAnswerText}*\n\n*පැහැදිලි කිරීම:* ${questionData.explanation}`;
+            // Incorrect Answer - no reply needed for incorrect answers as per current requirement
+            console.log(`Incorrect answer from ${sender}. Answered: ${userAnswer}, Correct: ${correctAnswerLetter}`);
         }
-        
-        // පිළිතුර යවන්න
-        await conn.sendMessage(quizEnabledGroupJid, { text: replyMessage }, { quoted: { key: { remoteJid: quizEnabledGroupJid, id: activeQuizMessageId }, message: { pollCreationMessage: { title: questionData.question } } } });
-
-        // එක් ප්‍රශ්නයකට එක් වරක් පමණක් ලකුණු දීමට
-        // දැනටමත් පිළිතුරු දී ඇත්නම්, නැවත ලකුණු නොදීමට
-        if (!quizScore[voterJid] || quizScore[voterJid].hasAnswered === undefined) {
-             // (ලකුණු එකතු කිරීමේ logic එක මෙහි ඉහළින් සිදු කර ඇත)
-            quizScore[voterJid] = { ...quizScore[voterJid], hasAnswered: true }; // නැවත පිළිතුරු දීම වැළැක්වීමට
-        }
-        
-        // ප්‍රශ්නයට පිළිතුරු ලැබුණු පසු active quiz එක reset කරන්න (අවශ්‍ය නම්, හෝ ඊළඟ ප්‍රශ්නයට යන්න කලින්)
-        //activeQuizMessageId = null; 
-        //currentQuizQuestionIndex = -1;
     }
 }
 
@@ -261,9 +299,9 @@ module.exports = {
     quizIntervalId,
     currentQuizQuestionIndex,
     quizQuestions,
-    quizScore,
-    activeQuizMessageId, // මෙයත් export කරන්න
+    activeQuizQuestionJid,
+    activeQuizQuestionMessageId,
     loadQuizState, 
     startQuizInterval,
-    handlePollVote // Poll vote handler function එක export කරන්න
+    handleIncomingMessage // සියලු incoming messages handle කිරීමට මෙම function එක export කරන්න
 };
