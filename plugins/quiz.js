@@ -54,7 +54,9 @@ function formatQuestion(questionObj) {
     questionObj.options.forEach((option, index) => {
         message += `${String.fromCharCode(65 + index)}. ${option}\n`; // විකල්ප A, B, C, D ලෙස පෙන්වයි.
     });
-    message += `\n_නිවැරදි පිළිතුර තෝරන්න!_නිවැරදි පිළිතුර type කර එවන්න.        ᴩᴏᴡᴇʀᴇᴅ ʙʏ qᴜᴇᴇɴ ꜱᴀᴅᴜ ᴀꜱᴛʀᴏ ᴠᴇʀꜱɪᴏɴ`;
+    message += `\n_නිවැරදි පිළිතුර තෝරන්න!_නිවැරදි පිළිතුර type කර එවන්න.`;
+               `\n*ᴩᴏᴡᴇʀᴇᴅ ʙʏ qᴜᴇᴇɴ-ꜱᴀᴅᴜ-ᴀꜱᴛʀᴏ*`;
+               `\n*ᴍʀᴅ ᴀɪ*`;
     return message;
 }
 
