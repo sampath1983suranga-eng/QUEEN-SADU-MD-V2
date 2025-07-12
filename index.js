@@ -311,7 +311,30 @@ if (!isReact && senderNumber === botNumber) {
   }
   events.commands.map(async(command) => {
   if (body && command.on === "body") {
-  command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
+    // groupMetadata තිබේ නම් පමණක් group-related variables ලබා ගන්න
+    let groupParticipants = [];
+    let groupAdmins = [];
+    let isBotAdmins = false;
+    let isAdmins = false;
+
+    if (isGroup && groupMetadata) {
+        groupParticipants = groupMetadata.participants || [];
+        groupAdmins = groupParticipants.filter(v => v.admin !== null).map(v => v.id);
+        isBotAdmins = groupAdmins.includes(botNumber2) || false; // botNumber2 should be the bot's JID in admin format
+        isAdmins = groupAdmins.includes(sender) || false; // sender should be the user's JID in admin format
+    }
+
+    command.function(conn, mek, m,{
+        from, l, quoted, body, isCmd, command, args, q, text, isGroup, 
+        sender, senderNumber, botNumber2, botNumber, pushname, isMe, 
+        isOwner, isCreator, groupMetadata, groupName, 
+        // අලුතින් define කල variables මෙහිදී pass කරන්න
+        participants: groupParticipants, 
+        groupAdmins, 
+        isBotAdmins, 
+        isAdmins, 
+        reply
+    })
   } else if (mek.q && command.on === "text") {
   command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
   } else if (
