@@ -1,136 +1,175 @@
-const config = require('../config')
-const {cmd , commands} = require('../command')
-const fs = require('fs').promises; // Asynchronous file operations
-const path = require('path'); // For resolving file paths
+// මෙම ප්ලගිනය WhatsApp Bot විධාන සඳහා භාවිතා වේ.
+// This plugin is used for WhatsApp Bot commands.
+const { cmd } = require('../command');
+const fs = require('fs'); // ගොනු පද්ධතිය සමඟ වැඩ කිරීමට fs මොඩියුලය අවශ්‍ය වේ.
+const path = require('path'); // ගොනු මාර්ග සමඟ වැඩ කිරීමට path මොඩියුලය අවශ්‍ය වේ.
 
-// Define path to your quiz questions JSON file
-const QUIZ_QUESTIONS_PATH = path.join(__dirname, '../data/quiz_questions.json');
+// ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව ක්‍රියාත්මක වන කණ්ඩායම් සඳහා තොරතුරු ගබඩා කිරීමට Map එකක්.
+// A Map to store information for groups where the quiz game is active.
+const activeQuizzes = new Map(); // Map<groupId, { intervalId: NodeJS.Timeout, currentQuestion: object }>
 
-// --- Global variables for quiz state ---
-let quizQuestions = []; 
-// Map to store active quiz state for each group/chat, to prevent multiple simultaneous manual quizzes
-const activeManualQuizzes = new Map(); 
-// Map to store auto quiz intervals for each group/chat
-const autoQuizIntervals = new Map();
-
-// --- Configuration for Auto Quiz ---
-const AUTO_QUIZ_INTERVAL_HOURS = 2; // Auto send a quiz every 2 hours
-const AUTO_QUIZ_DELAY_MS = AUTO_QUIZ_INTERVAL_HOURS * 60 * 60 * 1000; // Convert hours to milliseconds
-
-// --- Function to load quiz data from JSON file ---
-async function loadQuizData() {
-    try {
-        const questionsData = await fs.readFile(QUIZ_QUESTIONS_PATH, 'utf8');
-        quizQuestions = JSON.parse(questionsData);
-        console.log(`Loaded ${quizQuestions.length} quiz questions for quiz plugin.`);
-    } catch (error) {
-        console.error('Error loading quiz data for quiz plugin:', error);
-        quizQuestions = []; // Reset to empty to prevent errors
-        throw new Error('Failed to load quiz data. Check quiz_questions.json file and path.');
-    }
+// ප්‍රශ්න දත්ත ගොනුවෙන් කියවන්න.
+// Read question data from the file.
+let questionsData = [];
+try {
+    // __dirname යනු වත්මන් ගොනුවේ නාමාවලියයි (plugins ෆෝල්ඩරය).
+    // data ෆෝල්ඩරය plugins ෆෝල්ඩරයට එක මට්ටමක් ඉහළින් පිහිටා ඇත.
+    // __dirname is the directory of the current file (plugins folder).
+    // The data folder is located one level above the plugins folder.
+    const questionsFilePath = path.join(__dirname, '../data', 'questions.json');
+    const rawData = fs.readFileSync(questionsFilePath, 'utf8');
+    questionsData = JSON.parse(rawData);
+    console.log("ප්‍රශ්න දත්ත සාර්ථකව පූරණය කරන ලදී."); // Log successful loading.
+} catch (error) {
+    console.error("ප්‍රශ්න දත්ත පූරණය කිරීමේදී දෝෂයක්:", error); // Log error during loading.
+    // දත්ත පූරණය නොවන්නේ නම්, පෙරනිමි දත්ත හෝ හිස් අරාවක් භාවිතා කරන්න.
+    // If data fails to load, use default data or an empty array.
+    questionsData = [];
 }
 
-// Function to send a random quiz question to a specific chat
-async function sendRandomQuizQuestion(client, chatId) {
-    if (quizQuestions.length === 0) {
-        await client.sendMessage(chatId, { text: 'මට දැනට ප්‍රශ්න පටවා ගැනීමට නොහැක. කරුණාකර quiz_questions.json ගොනුව පරීක්ෂා කරන්න.' });
-        return;
+/**
+ * අහඹු ප්‍රශ්නයක් තෝරා ගනී.
+ * Selects a random question from the questionsData array.
+ * @returns {object|null} අහඹු ප්‍රශ්න වස්තුව හෝ දත්ත නොමැති නම් null.
+ */
+function getRandomQuestion() {
+    if (questionsData.length === 0) {
+        console.warn("ප්‍රශ්න දත්ත නොමැත. කරුණාකර questions.json ගොනුව පරීක්ෂා කරන්න.");
+        return null;
     }
+    return questionsData[Math.floor(Math.random() * questionsData.length)];
+}
 
-    const randomIndex = Math.floor(Math.random() * quizQuestions.length);
-    const question = quizQuestions[randomIndex];
-
-    let questionMessage = `*Mr.DAI Quiz Time! 🧠*\n\n`;
-    questionMessage += `*ප්‍රශ්නය:* ${question.question}\n\n`;
-    questionMessage += `*විකල්ප:*\n`;
-    question.options.forEach((option, index) => {
-        questionMessage += `${index + 1}. ${option}\n`;
+/**
+ * ප්‍රශ්න වස්තුවක් පණිවිඩයක් ලෙස හැඩගන්වයි.
+ * Formats a question object into a message string.
+ * @param {object} questionObj - ප්‍රශ්න වස්තුව.
+ * @returns {string} හැඩගැන්වූ ප්‍රශ්න පණිවිඩය.
+ */
+function formatQuestion(questionObj) {
+    if (!questionObj) {
+        return "ප්‍රශ්නයක් ලබා ගැනීමට නොහැකි විය. දත්ත පරීක්ෂා කරන්න.";
+    }
+    let message = `*ප්‍රශ්නය:* ${questionObj.question}\n\n*විකල්ප:*\n`;
+    questionObj.options.forEach((option, index) => {
+        message += `${String.fromCharCode(65 + index)}. ${option}\n`; // විකල්ප A, B, C, D ලෙස පෙන්වයි.
     });
-    questionMessage += `\nඔබට ඊළඟ ප්‍රශ්නයක් අවශ්‍ය නම් '.startmrdai' ලෙස ටයිප් කළ හැක.`;
-
-    await client.sendMessage(chatId, { text: questionMessage });
+    message += `\n_නිවැරදි පිළිතුර තෝරන්න!_`;
+    return message;
 }
 
-
-// --- Quiz Command Function ---
-module.exports = {
-    name: 'quiz', // Command name for internal reference
-    description: 'Starts a quiz game by sending a random question.',
-    command: ['.startmrdai', '.stopautodai', '.startautodai'], // Add .startautodai and .stopautodai for auto quiz
-    category: 'Fun', 
-    
-    // This function runs when the bot starts and is ready.
-    // It is designed to start auto-quizzes for groups.
-    // NOTE: This will be called only once on bot startup.
-    onStart: async ({ client }) => {
-        // Here you might load previous group IDs from a database
-        // and start auto-quiz intervals for them.
-        // For simplicity, let's assume it starts for any group that
-        // uses .startautodai during runtime, or you hardcode group IDs.
-        // A more robust solution would involve a database to store which groups have auto-quiz enabled.
-
-        // Example: If you want to enable auto-quiz for a specific group on startup:
-        // const specificGroupId = "1234567890@g.us"; // Replace with actual group ID
-        // if (!autoQuizIntervals.has(specificGroupId)) {
-        //     console.log(`[QUIZ] Starting auto quiz for ${specificGroupId} on bot startup.`);
-        //     const intervalId = setInterval(() => sendRandomQuizQuestion(client, specificGroupId), AUTO_QUIZ_DELAY_MS);
-        //     autoQuizIntervals.set(specificGroupId, intervalId);
-        // }
-    },
-
-    async function({ client, message, body, isGroup, groupMetadata }) {
-        const command = body.split(' ')[0].toLowerCase();
-        const chatId = message.key.remoteJid;
-
-        if (!isGroup) {
-            await client.sendMessage(chatId, { text: 'This command can only be used in a group.' });
-            return;
+// startmrdai විධානය: ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව ආරම්භ කරයි.
+// startmrdai command: Starts the quiz game.
+cmd({
+    pattern: "startmrdai",
+    react: "🚀", // විධානය ක්‍රියාත්මක වන විට පෙන්වන emoji.
+    alias: ["quizstart"],
+    desc: "ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව ආරම්භ කරන්න. සෑම පැයකට වරක් නව ප්‍රශ්නයක් යවනු ලැබේ.", // විධානයේ විස්තරය.
+    category: "game",
+    filename: __filename
+},
+async (conn, mek, m, { from }) => {
+    try {
+        if (questionsData.length === 0) {
+            return await conn.sendMessage(from, { text: 'ප්‍රශ්න දත්ත පූරණය වී නොමැත. කරුණාකර questions.json ගොනුව පරීක්ෂා කරන්න.' }, { quoted: mek });
         }
 
-        // --- .startmrdai command logic (Manual Quiz) ---
-        if (command === '.startmrdai') {
-            if (activeManualQuizzes.has(chatId)) {
-                await client.sendMessage(chatId, { text: `දැනටමත් manual Quiz එකක් ක්‍රියාත්මකයි. ඊළඟ ප්‍රශ්නය ලබා ගැනීමට පෙර ඉවසන්න.` });
-                return;
+        // ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව දැනටමත් ක්‍රියාත්මකදැයි පරීක්ෂා කරන්න.
+        // Check if the quiz is already active for this group.
+        if (activeQuizzes.has(from)) {
+            return await conn.sendMessage(from, { text: 'ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව දැනටමත් ක්‍රියාත්මකයි.' }, { quoted: mek });
+        }
+
+        // ප්‍රශ්නයක් තෝරාගෙන කණ්ඩායමට යැවීමට ශ්‍රිතය.
+        // Function to select and send a question to the group.
+        const sendQuestion = async () => {
+            const question = getRandomQuestion();
+            const questionMessage = formatQuestion(question);
+            await conn.sendMessage(from, { text: questionMessage });
+
+            // වත්මන් ප්‍රශ්නය ගබඩා කරන්න (පිළිතුරු පරීක්ෂා කිරීම සඳහා අනාගතයේදී භාවිතා කළ හැක).
+            // Store the current question (can be used for answer checking in the future).
+            if (activeQuizzes.has(from)) { // Ensure the quiz is still active before updating
+                activeQuizzes.get(from).currentQuestion = question;
             }
+        };
 
-            activeManualQuizzes.set(chatId, true); // Mark manual quiz as active
-            await sendRandomQuizQuestion(client, chatId);
+        // පළමු ප්‍රශ්නය වහාම යවන්න.
+        // Send the first question immediately.
+        await sendQuestion();
 
-            // Remove the active manual quiz after a short delay (e.g., 1 minute)
-            // This allows the user to request another question after some time.
-            setTimeout(() => {
-                activeManualQuizzes.delete(chatId);
-            }, 60 * 1000); // Allow another manual quiz in 1 minute
+        // සෑම පැයකට වරක් ප්‍රශ්න යැවීමට interval එකක් සකසන්න. (1 hour = 60 minutes * 60 seconds * 1000 milliseconds)
+        // Set an interval to send questions every hour.
+        const intervalId = setInterval(sendQuestion, 60 * 60 * 1000); // 1 hour
 
-        }
-        // --- .startautodai command logic (Start Auto Quiz) ---
-        else if (command === '.startautodai') {
-            if (autoQuizIntervals.has(chatId)) {
-                await client.sendMessage(chatId, { text: 'මෙම Chat එකේ දැනටමත් Auto Quiz ක්‍රියාත්මකයි.' });
-                return;
-            }
+        // ක්‍රියාත්මක වන ප්‍රශ්න විචාරාත්මක ක්‍රීඩා Map එකට එක් කරන්න.
+        // Add the active quiz to the map.
+        activeQuizzes.set(from, { intervalId: intervalId, currentQuestion: null });
 
-            // Start the interval for this chat
-            const intervalId = setInterval(() => sendRandomQuizQuestion(client, chatId), AUTO_QUIZ_DELAY_MS);
-            autoQuizIntervals.set(chatId, intervalId);
-            await client.sendMessage(chatId, { text: `Auto Quiz සාර්ථකව ආරම්භ කරන ලදී. සෑම පැය ${AUTO_QUIZ_INTERVAL_HOURS} කට වරක් නව ප්‍රශ්නයක් ලැබෙනු ඇත.` });
-            console.log(`[QUIZ] Auto quiz started for chat ID: ${chatId}`);
+        await conn.sendMessage(from, { text: 'ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව ආරම්භ විය! සෑම පැයකට වරක් නව ප්‍රශ්නයක් යවනු ලැබේ.' }, { quoted: mek });
 
-        }
-        // --- .stopautodai command logic (Stop Auto Quiz) ---
-        else if (command === '.stopautodai') {
-            if (autoQuizIntervals.has(chatId)) {
-                clearInterval(autoQuizIntervals.get(chatId)); // Stop the interval
-                autoQuizIntervals.delete(chatId); // Remove from map
-                await client.sendMessage(chatId, { text: 'Auto Quiz සාර්ථකව නවත්වන ලදී.' });
-                console.log(`[QUIZ] Auto quiz stopped for chat ID: ${chatId}`);
-            } else {
-                await client.sendMessage(chatId, { text: 'මෙම Chat එකේ දැනට ක්‍රියාත්මක වන Auto Quiz එකක් නොමැත.' });
-            }
-        }
+    } catch (error) {
+        console.error("startmrdai හි දෝෂයක්:", error); // Log the error.
+        await conn.sendMessage(from, { text: 'කණගාටුයි, ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව ආරම්භ කිරීමේදී දෝෂයක් ඇති විය.' }, { quoted: mek });
     }
-};
+});
 
-// Load data when the module is first loaded (important!)
-loadQuizData().catch(e => console.error("Initial quiz data load failed:", e));
+// stopmrdai විධානය: ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව නවත්වයි.
+// stopmrdai command: Stops the quiz game.
+cmd({
+    pattern: "stopmrdai",
+    react: "🛑", // විධානය ක්‍රියාත්මක වන විට පෙන්වන emoji.
+    alias: ["quizstop"],
+    desc: "ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව නවත්වන්න.", // විධානයේ විස්තරය.
+    category: "game",
+    filename: __filename
+},
+async (conn, mek, m, { from }) => {
+    try {
+        // ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව ක්‍රියාත්මක නොවේදැයි පරීක්ෂා කරන්න.
+        // Check if the quiz is not active for this group.
+        if (!activeQuizzes.has(from)) {
+            return await conn.sendMessage(from, { text: 'ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව දැනටමත් ක්‍රියාත්මක නොවේ.' }, { quoted: mek });
+        }
+
+        // interval එක නවත්වන්න.
+        // Clear the interval.
+        clearInterval(activeQuizzes.get(from).intervalId);
+        // Map එකෙන් අදාළ කණ්ඩායම ඉවත් කරන්න.
+        // Remove the group from the active quizzes map.
+        activeQuizzes.delete(from);
+
+        await conn.sendMessage(from, { text: 'ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව නතර කරන ලදී.' }, { quoted: mek });
+
+    } catch (error) {
+        console.error("stopmrdai හි දෝෂයක්:", error); // Log the error.
+        await conn.sendMessage(from, { text: 'කණගාටුයි, ප්‍රශ්න විචාරාත්මක ක්‍රීඩාව නැවැත්වීමේදී දෝෂයක් ඇති විය.' }, { quoted: mek });
+    }
+});
+
+// getmrdai විධානය: අහඹු ප්‍රශ්නයක් ලබා දෙයි.
+// getmrdai command: Gets a random question.
+cmd({
+    pattern: "getmrdai",
+    react: "❓", // විධානය ක්‍රියාත්මක වන විට පෙන්වන emoji.
+    alias: ["getquiz"],
+    desc: "අහඹු ප්‍රශ්නයක් ලබා ගන්න.", // විධානයේ විස්තරය.
+    category: "game",
+    filename: __filename
+},
+async (conn, mek, m, { from }) => {
+    try {
+        if (questionsData.length === 0) {
+            return await conn.sendMessage(from, { text: 'ප්‍රශ්න දත්ත පූරණය වී නොමැත. කරුණාකර questions.json ගොනුව පරීක්ෂා කරන්න.' }, { quoted: mek });
+        }
+        // අහඹු ප්‍රශ්නයක් තෝරාගෙන එය හැඩගන්වන්න.
+        // Select a random question and format it.
+        const question = getRandomQuestion();
+        const questionMessage = formatQuestion(question);
+        await conn.sendMessage(from, { text: questionMessage }, { quoted: mek });
+
+    } catch (error) {
+        console.error("getmrdai හි දෝෂයක්:", error); // Log the error.
+        await conn.sendMessage(from, { text: 'කණගාටුයි, ප්‍රශ්නයක් ලබා ගැනීමේදී දෝෂයක් ඇති විය.' }, { quoted: mek });
+    }
+});
