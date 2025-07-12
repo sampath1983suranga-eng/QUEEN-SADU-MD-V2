@@ -1,363 +1,141 @@
-const { cmd } = require('../command');
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs').promises; // Asynchronous file operations
+const path = require('path'); // For resolving file paths
 
-// Quiz questions JSON file එක load කරගැනීම
-const QUIZ_QUESTIONS_FILE = path.join(__dirname, '../data/quiz_questions.json'); 
-let quizQuestions = [];
-try {
-    quizQuestions = JSON.parse(fs.readFileSync(QUIZ_QUESTIONS_FILE, 'utf8'));
-    // Validate each question to ensure 'correct_answer_text' exists
-    quizQuestions = quizQuestions.filter(q => {
-        if (!q.correct_answer_text) {
-            console.warn(`Question "${q.question}" is missing 'correct_answer_text' and will be skipped.`);
-            return false;
-        }
-        return true;
-    });
-    if (quizQuestions.length === 0) {
-        console.warn("quiz_questions.json is empty or contains no valid questions with 'correct_answer_text'.");
-    }
-} catch (error) {
-    console.error(`Error loading quiz_questions.json from ${QUIZ_QUESTIONS_FILE}:`, error.message);
-    quizQuestions = []; 
-}
+// Define paths to your JSON files relative to this file
+const QUIZ_QUESTIONS_PATH = path.join(__dirname, '../data/quiz_questions.json');
+const QUIZ_ANSWERS_PATH = path.join(__dirname, '../data/quiz_answers.json');
 
-// Quiz answers (explanations) JSON file එක load කරගැනීම
-const QUIZ_ANSWERS_FILE = path.join(__dirname, '../data/quiz_answers.json'); 
-let quizExplanations = {}; // { correct_answer_letter: "Explanation text" }
-try {
-    quizExplanations = JSON.parse(fs.readFileSync(QUIZ_ANSWERS_FILE, 'utf8'));
-} catch (error) {
-    console.error(`Error loading quiz_answers.json from ${QUIZ_ANSWERS_FILE}:`, error.message);
-    quizExplanations = {};
-}
+// --- Global variables for quiz state ---
+// To store all quiz questions from quiz_questions.json
+let quizQuestions = []; 
+// To store all quiz answers descriptions from quiz_answers.json
+let quizAnswersDescriptions = {}; 
+// Map to store current quiz state for each group/chat
+// Key: chat ID (e.g., groupId), Value: { currentQuestion: {}, answeredUsers: new Set(), correctAnswer: '' }
+const activeQuizzes = new Map(); 
 
-// Quiz ක්‍රියාත්මක වන group JID එක ගබඩා කිරීමට
-const QUIZ_STATE_FILE = path.join(__dirname, '../data/quiz_state.json'); 
-let quizEnabledGroupJid = null;
-let quizIntervalId = null;
-let currentQuizQuestionIndex = -1; // දැනට ක්‍රියාත්මක ප්‍රශ්නයේ index එක
-let activeQuizQuestionJid = null; // ප්‍රශ්නය යැවූ JID
-let activeQuizQuestionMessageId = null; // ප්‍රශ්න message එකේ ID එක (quoted reply සඳහා)
-let answeredParticipants = new Set(); // දැනට ක්‍රියාත්මක ප්‍රශ්නයට පිළිතුරු දුන් අයගේ JIDs
-
-// Bot start වන විට, කලින් තිබූ state එක load කරගැනීම
-function loadQuizState() {
+// --- Function to load quiz data from JSON files ---
+async function loadQuizData() {
     try {
-        if (fs.existsSync(QUIZ_STATE_FILE)) {
-            const state = JSON.parse(fs.readFileSync(QUIZ_STATE_FILE, 'utf8'));
-            if (state && state.groupJid) {
-                quizEnabledGroupJid = state.groupJid;
-                console.log(`Loaded quiz state: Quiz enabled for JID ${quizEnabledGroupJid}`);
-            }
-        }
+        const questionsData = await fs.readFile(QUIZ_QUESTIONS_PATH, 'utf8');
+        quizQuestions = JSON.parse(questionsData);
+        console.log(`Loaded ${quizQuestions.length} quiz questions.`);
+
+        const answersData = await fs.readFile(QUIZ_ANSWERS_PATH, 'utf8');
+        quizAnswersDescriptions = JSON.parse(answersData);
+        console.log(`Loaded ${Object.keys(quizAnswersDescriptions).length} quiz answer descriptions.`);
     } catch (error) {
-        console.error("Error loading quiz_state.json:", error);
+        console.error('Error loading quiz data:', error);
+        // If files are not found or malformed, the bot might not start quiz correctly
+        quizQuestions = []; // Reset to empty to prevent errors
+        quizAnswersDescriptions = {};
+        throw new Error('Failed to load quiz data. Check JSON files and paths.');
     }
 }
 
-// Quiz state එක save කිරීම
-function saveQuizState() {
-    try {
-        const dataDir = path.dirname(QUIZ_STATE_FILE);
-        if (!fs.existsSync(dataDir)) {
-            fs.mkdirSync(dataDir, { recursive: true });
-        }
-        const state = { groupJid: quizEnabledGroupJid };
-        fs.writeFileSync(QUIZ_STATE_FILE, JSON.stringify(state, null, 2), 'utf8'); 
-        console.log(`Quiz state saved for JID: ${quizEnabledGroupJid}`);
-    } catch (error) {
-        console.error("Error saving quiz_state.json:", error);
-    }
-}
+// Load data when the module is first loaded
+loadQuizData().catch(e => console.error("Initial quiz data load failed:", e));
 
-// Quiz Interval එක ආරම්භ කිරීමේ function එක
-function startQuizInterval(conn, jid) {
-    if (quizIntervalId) {
-        clearInterval(quizIntervalId); 
-        console.log(`Cleared existing quiz interval for ${jid}`);
-    }
-    quizIntervalId = setInterval(async () => {
-        const activeConn = global.currentConn || global.client; 
-        if (activeConn && quizEnabledGroupJid) {
-            await sendQuizQuestion(activeConn, quizEnabledGroupJid);
-        } else {
-            console.warn("No active connection object found or quiz not enabled for any group. Stopping interval.");
-            if (quizIntervalId) {
-                clearInterval(quizIntervalId);
-                quizIntervalId = null;
-            }
-        }
-    }, 60 * 60 * 1000); // 1 hour (60 minutes * 60 seconds * 1000 milliseconds)
-    console.log(`Quiz interval started for ${jid}`);
-}
-
-// Bot ආරම්භ වන විට state එක load කරන්න.
-loadQuizState(); 
-
-// --- Helper Functions ---
-
-function getContentType(message) {
-    if (message.imageMessage) return 'imageMessage';
-    if (message.videoMessage) return 'videoMessage';
-    if (message.extendedTextMessage) return 'extendedTextMessage';
-    if (message.buttonsResponseMessage) return 'buttonsResponseMessage';
-    if (message.listResponseMessage) return 'listResponseMessage';
-    if (message.templateButtonReplyMessage) return 'templateButtonReplyMessage';
-    if (message.text) return 'text';
-    return null;
-}
-
-// --- Quiz Commands ---
-
-// ප්‍රශ්නයක් text එකක් ලෙස යැවීම සඳහා වන function එක
-async function sendQuizQuestion(conn, jid) {
-    if (quizQuestions.length === 0) {
-        await conn.sendMessage(jid, { text: "මට පෙන්වීමට ප්‍රශ්න නැත. කරුණාකර quiz_questions.json ගොනුව නිවැරදිව සකසා ඇති බවට තහවුරු කරන්න, 'correct_answer_text' fields ඇතුළත්ව." });
-        return false; 
-    }
-
-    currentQuizQuestionIndex = Math.floor(Math.random() * quizQuestions.length);
-    const questionData = quizQuestions[currentQuizQuestionIndex];
-
-    let quizMessage = `*ප්‍රශ්නය:* ${questionData.question}\n\n`;
-    questionData.options.forEach((option, index) => {
-        quizMessage += `${String.fromCharCode(65 + index)}. ${option}\n`; // A. Option1, B. Option2, ... E. Option5
-    });
-    quizMessage += "\n*නිවැරදි පිළිතුරේ අකුර හෝ 'answer: [ඔබගේ පිළිතුර]' ලෙස type කරන්න.*"; // උපදෙස් වෙනස් කර ඇත
-
-    const sentMsg = await conn.sendMessage(jid, { text: quizMessage });
-    
-    activeQuizQuestionJid = jid;
-    activeQuizQuestionMessageId = sentMsg.key.id; // ප්‍රශ්න message එකේ ID එක ගබඩා කරන්න
-    answeredParticipants.clear(); // අලුත් ප්‍රශ්නයක් එවන විට පිළිතුරු දුන් අයගේ ලැයිස්තුව clear කරන්න
-    console.log(`Sent quiz question (Text) to ${jid}. Question index: ${currentQuizQuestionIndex}, Message ID: ${activeQuizQuestionMessageId}`);
-    return true; 
-}
-
-
-// .startmrdai Command (පැයෙන් පැයට Quiz එක ආරම්භ කිරීමට) - දැන් ඕනෑම කෙනෙකුට භාවිතා කළ හැක
-cmd({
-    pattern: "startmrdai",
-    react: "✅",
-    desc: "Start MR D AI quiz in this group (hourly).",
-    category: "quiz",
-    use: '.startmrdai',
-    filename: __filename,
-},
-async(conn, mek, m,{from, isGroup, reply}) => { 
-    // Global connection object එක set කරන්න
-    global.currentConn = conn; 
-
-    if (!isGroup) return reply("❌ *මෙම command එක Groups වලට පමණක් භාවිතා කළ හැක!*");
-
-    if (quizEnabledGroupJid === from) {
-        return reply("✅ *Quiz එක දැනටමත් මෙම Group එකේ සක්‍රීයයි!*");
-    }
-
-    quizEnabledGroupJid = from;
-    saveQuizState(); 
-
-    // Group metadata ලබා ගැනීමට උත්සාහ කිරීම
-    let groupName = "මෙම Group එකේ"; 
-    try {
-        const metadata = await conn.groupMetadata(from);
-        if (metadata && metadata.subject) {
-            groupName = `"${metadata.subject}" Group එකේ`;
-        }
-    } catch (e) {
-        console.error("Error fetching group metadata in quiz.js (startmrdai):", e.message);
-    }
-
-    reply(`✅ *MR D AI Quiz එක ${groupName} ආරම්භ කරන ලදී. සෑම පැයකට වරක්ම ප්‍රශ්නයක් එවනු ලැබේ.*`);
-    
-    // වහාම පළමු ප්‍රශ්නය යවන්න, පසුව interval එක ආරම්භ කරන්න
-    await sendQuizQuestion(conn, from);
-    startQuizInterval(conn, from); 
-});
-
-
-// .stopmrdai Command (Quiz එක නැවැත්වීමට) - දැන් ඕනෑම කෙනෙකුට භාවිතා කළ හැක
-cmd({
-    pattern: "stopmrdai",
-    react: "❌",
-    desc: "Stop MR D AI quiz in this group.",
-    category: "quiz",
-    use: '.stopmrdai',
-    filename: __filename,
-},
-async(conn, mek, m,{from, isGroup, reply}) => { 
-    if (!isGroup) return reply("❌ *මෙම command එක Groups වලට පමණක් භාවිතා කළ හැක!*");
-
-    if (quizEnabledGroupJid !== from) {
-        return reply("❌ *Quiz එක දැනටමත් මෙම Group එකේ සක්‍රීය නැත!*");
-    }
-
-    if (quizIntervalId) {
-        clearInterval(quizIntervalId);
-        quizIntervalId = null;
-    }
-    quizEnabledGroupJid = null;
-    activeQuizQuestionJid = null;
-    activeQuizQuestionMessageId = null;
-    answeredParticipants.clear(); 
-    saveQuizState(); 
-
-    reply("🛑 *MR D AI Quiz එක නවත්වන ලදී.*");
-});
-
-// .getmrdai Command (එසැණින් ප්‍රශ්නයක් ලබා ගැනීමට) - දැන් ඕනෑම කෙනෙකුට භාවිතා කළ හැක
-cmd({
-    pattern: "getmrdai",
-    react: "💡",
-    desc: "Get a new MR D AI quiz question instantly.",
-    category: "quiz",
-    use: '.getmrdai',
-    filename: __filename
-},
-async(conn, mek, m,{from, isGroup, reply}) => { 
-    // Global connection object එක set කරන්න
-    global.currentConn = conn;
-
-    if (!isGroup) return reply("❌ *මෙම command එක Groups වලට පමණක් භාවිතා කළ හැක!*");
-    
-    const sent = await sendQuizQuestion(conn, from);
-    if (!sent) {
-        reply("😔 *දැනට ප්‍රශ්නයක් යැවීමට නොහැක.* කරුණාකර quiz_questions.json ගොනුව පරීක්ෂා කරන්න.");
-    }
-});
-
-// --- Baileys messages.upsert event listener එක Quiz module එක තුළින්ම register කිරීම ---
-let attempts = 0;
-const MAX_ATTEMPTS = 5; 
-const INITIAL_DELAY = 15000; 
-const RETRY_DELAY = 5000; 
-
-function tryRegisterQuizListener() {
-    const connInstance = global.currentConn || global.client;
-    if (connInstance && connInstance.ev && !connInstance._quizMessageUpsertHandlerRegistered) {
-        console.log("Registering quiz message upsert handler...");
-        
-        connInstance.ev.on('messages.upsert', async ({ messages }) => {
-            for (let i = 0; i < messages.length; i++) {
-                const mek = messages[i];
-                if (mek.key.fromMe || mek.key.remoteJid === 'status@broadcast') continue;
-
-                const from = mek.key.remoteJid;
-                const isGroup = from && from.endsWith('@g.us');
-
-                if (isGroup && quizEnabledGroupJid === from && currentQuizQuestionIndex !== -1) {
-                    const sender = mek.key.participant || from; 
-                    
-                    if (answeredParticipants.has(sender)) {
-                        continue; 
-                    }
-
-                    const questionData = quizQuestions[currentQuizQuestionIndex];
-                    if (!questionData || typeof questionData.answer_index === 'undefined' || !questionData.correct_answer_text) {
-                        console.error("Invalid question data for current quiz question index (missing answer_index or correct_answer_text):", currentQuizQuestionIndex);
-                        continue;
-                    }
-
-                    const correctAnswerIndex = questionData.answer_index;
-                    const correctAnswerLetter = String.fromCharCode(65 + correctAnswerIndex); 
-                    const correctTextAnswer = questionData.correct_answer_text.toLowerCase().trim(); // නිවැරදි පිළිතුර lowercase, trim කරගන්න
-
-                    const messageType = getContentType(mek.message);
-                    let userAnswerText = '';
-                    
-                    if (messageType === 'extendedTextMessage') {
-                        userAnswerText = mek.message.extendedTextMessage.text;
-                    } else if (messageType === 'text') {
-                        userAnswerText = mek.message.text;
-                    } else {
-                        continue; 
-                    }
-                    
-                    const userAnswer = userAnswerText.toLowerCase().trim(); // user ගේ පිළිතුර lowercase, trim කරගන්න
-
-                    const botPrefix = global.config?.PREFIX || '!'; 
-                    if (userAnswer.startsWith(botPrefix.toLowerCase())) { // prefix එකත් lowercase කරන්න
-                        continue;
-                    }
-
-                    // පිළිතුරේ අකුර (A, B, C) හෝ සම්පූර්ණ පිළිතුර (answer: [text])
-                    let isCorrect = false;
-                    let answerType = ''; // "letter" or "text"
-
-                    // 1. අකුරින් පිළිතුරු පරීක්ෂා කිරීම (A, B, C...)
-                    if (userAnswer.toUpperCase() === correctAnswerLetter) {
-                        isCorrect = true;
-                        answerType = 'letter';
-                    } 
-                    // 2. "answer: [ඔබගේ පිළිතුර]" ආකෘතිය පරීක්ෂා කිරීම
-                    else if (userAnswer.startsWith('answer:')) {
-                        const submittedAnswer = userAnswer.substring('answer:'.length).trim();
-                        if (submittedAnswer === correctTextAnswer) {
-                            isCorrect = true;
-                            answerType = 'text';
-                        }
-                    }
-                    // 3. සෘජුව සම්පූර්ණ පිළිතුර text ලෙස type කිරීම පරීක්ෂා කිරීම (පිළිතුර 'answer:' prefix එකකින් තොරව)
-                    else if (userAnswer === correctTextAnswer) {
-                        isCorrect = true;
-                        answerType = 'text_direct';
-                    }
-
-
-                    if (isCorrect) {
-                        const userName = await connInstance.getName(sender);
-                        const explanationText = quizExplanations[correctAnswerLetter] || "ඔබගේ පිළිතුර නිවැරදියි!";
-                        
-                        const replyMessage = `🎉 *${userName}*, ඔබගේ පිළිතුර නිවැරදියි! ${explanationText}`;
-
-                        if (activeQuizQuestionMessageId && activeQuizQuestionJid === from) {
-                            await connInstance.sendMessage(from, { text: replyMessage }, { 
-                                quoted: { 
-                                    key: { remoteJid: from, id: activeQuizQuestionMessageId, fromMe: false }, 
-                                    message: { conversation: questionData.question } 
-                                } 
-                            });
-                        } else {
-                            await connInstance.sendMessage(from, { text: replyMessage });
-                        }
-
-                        answeredParticipants.add(sender);
-                        console.log(`Correct answer from ${userName} (${sender}). Answered type: ${answerType}, Correct text: ${questionData.correct_answer_text}. Explanation: ${explanationText}`);
-                    }
-                }
-            }
-        });
-        connInstance._quizMessageUpsertHandlerRegistered = true; 
-        
-        if (quizEnabledGroupJid) {
-            console.log(`Attempting to restart quiz interval for ${quizEnabledGroupJid} on bot start.`);
-            startQuizInterval(connInstance, quizEnabledGroupJid);
-        }
-    } else if (connInstance && connInstance._quizMessageUpsertHandlerRegistered) {
-        console.log("Quiz message upsert handler already registered.");
-    } else {
-        attempts++;
-        if (attempts <= MAX_ATTEMPTS) {
-            console.log(`No connection instance (global.currentConn or global.client) found or it's not ready yet. Retrying in ${RETRY_DELAY / 1000} seconds... (Attempt ${attempts}/${MAX_ATTEMPTS})`);
-            setTimeout(tryRegisterQuizListener, RETRY_DELAY);
-        } else {
-            console.error("Failed to register quiz upsert handler after multiple attempts. Connection object not available.");
-        }
-    }
-}
-
-setTimeout(tryRegisterQuizListener, INITIAL_DELAY); 
-
-// Quiz module එක export කරන්න
+// --- Quiz Command Function ---
 module.exports = {
-    quizEnabledGroupJid,
-    quizIntervalId,
-    currentQuizQuestionIndex,
-    quizQuestions,
-    activeQuizQuestionJid,
-    activeQuizQuestionMessageId,
-    loadQuizState, 
-    startQuizInterval,
+    name: 'quiz', // Command name (e.g., .quiz)
+    description: 'Start and manage a quiz game.',
+    command: ['.startmrdai', '.stopmrdai'], // Commands to trigger this plugin
+    category: 'Fun', // Category for documentation
+    async function({ client, message, body, isGroup, groupMetadata }) {
+        const command = body.split(' ')[0].toLowerCase();
+        const chatId = message.key.remoteJid;
+
+        // Check if the command is called in a group
+        if (!isGroup) {
+            await client.sendMessage(chatId, { text: 'This command can only be used in a group.' });
+            return;
+        }
+
+        // --- .startmrdai command logic ---
+        if (command === '.startmrdai') {
+            // Check if there's an active quiz in this chat
+            if (activeQuizzes.has(chatId)) {
+                await client.sendMessage(chatId, { text: 'දැනටමත් Quiz එකක් ක්‍රියාත්මකයි. නව Quiz එකක් ආරම්භ කිරීමට පෙර '.stopmrdai' විධානය භාවිතා කරන්න.' });
+                return;
+            }
+
+            // Ensure we have questions loaded
+            if (quizQuestions.length === 0) {
+                await client.sendMessage(chatId, { text: 'මට දැනට ප්‍රශ්න පටවා ගැනීමට නොහැක. කරුණාකර JSON ගොනු පරීක්ෂා කරන්න.' });
+                return;
+            }
+
+            // Select a random question
+            const randomIndex = Math.floor(Math.random() * quizQuestions.length);
+            const question = quizQuestions[randomIndex];
+
+            // Initialize quiz state for this chat
+            activeQuizzes.set(chatId, {
+                currentQuestion: question,
+                answeredUsers: new Set(), // To track who answered to prevent multiple tries for same question
+                correctAnswer: question.answer.toLowerCase()
+            });
+
+            // Format question message
+            let questionMessage = `*Mr.DAI Quiz Time! 🧠*\n\n`;
+            questionMessage += `*ප්‍රශ්නය:* ${question.question}\n\n`;
+            questionMessage += `*විකල්ප:*\n`;
+            question.options.forEach((option, index) => {
+                questionMessage += `${index + 1}. ${option}\n`;
+            });
+            questionMessage += `\nපිළිතුර සෘජුවම (උදා: ${question.options[0]}) ටයිප් කරන්න.`;
+
+            await client.sendMessage(chatId, { text: questionMessage });
+
+        }
+        // --- .stopmrdai command logic ---
+        else if (command === '.stopmrdai') {
+            if (activeQuizzes.has(chatId)) {
+                activeQuizzes.delete(chatId); // Remove active quiz for this chat
+                await client.sendMessage(chatId, { text: 'Quiz එක සාර්ථකව අවසන් කරන ලදී.' });
+            } else {
+                await client.sendMessage(chatId, { text: 'මෙම Chat එකේ දැනට ක්‍රියාත්මක වන Quiz එකක් නොමැත.' });
+            }
+        }
+    },
+    // --- Message Listener for Answers ---
+    // This part handles incoming messages that are NOT commands, to check for answers
+    // This is called for every incoming message in index.js, so we need to filter
+    async handleMessage({ client, message, body, isGroup, sender }) {
+        const chatId = message.key.remoteJid;
+
+        // Only process if there's an active quiz in this group and it's not a command
+        if (isGroup && activeQuizzes.has(chatId) && !body.startsWith('.')) {
+            const quizState = activeQuizzes.get(chatId);
+            const { currentQuestion, answeredUsers, correctAnswer } = quizState;
+
+            // Prevent users from answering multiple times for the same question
+            if (answeredUsers.has(sender)) {
+                // await client.sendMessage(chatId, { text: 'ඔබ මෙම ප්‍රශ්නයට දැනටමත් පිළිතුරු දී ඇත.' }, { quoted: message }); // Optional: inform user
+                return; 
+            }
+
+            const receivedAnswer = body.toLowerCase().trim();
+
+            // Check if the received answer matches the correct answer (case-insensitive, trimmed)
+            if (receivedAnswer === correctAnswer) {
+                const answerDescription = quizAnswersDescriptions[currentQuestion.answer] || 'පිළිතුර සඳහා විස්තරයක් නොමැත.';
+                
+                let replyMessage = `*නිවැරදි පිළිතුරයි!* 🎉\n`;
+                replyMessage += `*පිළිතුර:* ${currentQuestion.answer}\n\n`;
+                replyMessage += `*විස්තරය:* ${answerDescription}\n\n`;
+                replyMessage += `ඊළඟ ප්‍රශ්නය සඳහා '.startmrdai' ටයිප් කරන්න, නැතහොත් Quiz එක නැවැත්වීමට '.stopmrdai' ටයිප් කරන්න.`;
+                
+                await client.sendMessage(chatId, { text: replyMessage }, { quoted: message });
+                
+                // End the current quiz for this group so a new one can be started
+                activeQuizzes.delete(chatId); 
+            } else {
+                // Mark user as having attempted this question to prevent spamming answers
+                answeredUsers.add(sender); 
+                await client.sendMessage(chatId, { text: 'වැරදි පිළිතුරයි! නැවත උත්සාහ කරන්න.' }, { quoted: message });
+            }
+        }
+    }
 };
