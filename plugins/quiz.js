@@ -56,8 +56,7 @@ module.exports = {
         // --- .startmrdai command logic ---
         if (command === '.startmrdai') {
             // Check if there's an active quiz in this chat
-            if (activeQuizzes.has(chatId)) {
-                await client.sendMessage(chatId, { text: 'දැනටමත් Quiz එකක් ක්‍රියාත්මකයි. නව Quiz එකක් ආරම්භ කිරීමට පෙර '.stopmrdai' විධානය භාවිතා කරන්න.' });
+            await client.sendMessage(chatId, { text: 'දැනටමත් Quiz එකක් ක්‍රියාත්මකයි. නව Quiz එකක් ආරම්භ කිරීමට පෙර '.stopmrdai' විධානය භාවිතා කරන්න.' });
                 return;
             }
 
