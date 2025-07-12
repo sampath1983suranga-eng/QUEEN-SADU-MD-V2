@@ -1,7 +1,4 @@
-
-    
-  
- // ... (ඔබගේ දැනට පවතින require statements) ...
+const {
   default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason,
@@ -31,7 +28,7 @@
   const fs = require('fs')
   const ff = require('fluent-ffmpeg')
   const P = require('pino')
-  const config = require('./config') // <-- config object එක මෙතනින් load වෙනවා
+  const config = require('./config')
   const qrcode = require('qrcode-terminal')
   const StickersTypes = require('wa-sticker-formatter')
   const util = require('util')
@@ -44,180 +41,25 @@
   const os = require('os')
   const Crypto = require('crypto')
   const path = require('path')
-  const prefix = config.PREFIX // <-- prefix එක මෙතනින් ගන්නවා
-
-// --- START: Quiz System සඳහා අලුතින් එකතු කරන ලද පේළි ---
-const quizModule = require('./commands/quiz'); // Quiz plugin එක require කිරීම
-global.currentConn = null; // Quiz module එකට connection object එක ලබා දීමට
-global.config = { PREFIX: config.PREFIX }; // ඔබේ bot හි prefix එක quiz module එකට ලබාදීමට
-                                          // config.PREFIX යනු ඔබගේ prefix එක අඩංගු වන ස්ථානයයි
-// --- END: Quiz System සඳහා අලුතින් එකතු කරන ලද පේළි ---
-
-const ownerNumber = ['94781536595']
+  const prefix = config.PREFIX
   
-const tempDir = path.join(os.tmpdir(), 'cache-temp')
-if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir)
-}
-
-const clearTempDir = () => {
-    fs.readdir(tempDir, (err, files) => {
-        if (err) throw err;
-        for (const file of files) {
-            fs.unlink(path.join(tempDir, file), err => {
-                if (err) throw err;
-            });
-        }
-    });
-}
-
-// --- START: startBot function එකේ වෙනස්කම් ---
-const startBot = async () => {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys')
-    const { version, isLatest } = await fetchLatestBaileysVersion()
-    console.log(`using WA v${version.join('.')}, isLatest: ${isLatest}`)
-
-    const store = makeInMemoryStore({ logger: P().child({ level: 'silent', stream: 'store' }) }) // pino() වෙනුවට P()
-                                                                                                    // logger: pino()
-    const conn = makeWASocket({
-        version,
-        logger: P({ level: 'silent' }), // pino({ level: 'silent' }) වෙනුවට P({ level: 'silent' })
-        printQRInTerminal: true,
-        browser: Browsers.macOS('Chrome'),
-        auth: state,
-        getMessage: async (key) => {
-            if (store) {
-                const msg = await store.loadMessage(key.remoteJid, key.id)
-                return msg.message || undefined
-            }
-            return proto.Message.fromObject({})
-        }
-    })
-
-    store.bind(conn.ev)
-
-    // Set global connection for quiz module
-    global.currentConn = conn; 
-    quizModule.loadQuizState(); // Quiz state එක load කරන්න (මෙය quizModule.js හි තිබිය යුතුය)
-
-    conn.ev.on('creds.update', saveCreds)
-
-    conn.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update
-        if (connection === 'close') {
-            let reason = new DisconnectReason(lastDisconnect?.error?.output?.statusCode || DisconnectReason.badSession);
-            if (reason === DisconnectReason.badSession) {
-                console.log(`Bad Session File, Please Delete Session and Scan Again`);
-                startBot();
-            } else if (reason === DisconnectReason.connectionClosed) {
-                console.log("Connection closed, reconnecting....");
-                startBot();
-            } else if (reason === DisconnectReason.connectionLost) {
-                console.log("Connection Lost from Server, reconnecting....");
-                startBot();
-            } else if (reason === DisconnectReason.connectionReplaced) {
-                console.log("Connection Replaced, Another new session opened, please close current session first");
-                process.exit();
-            } else if (reason === DisconnectReason.loggedIn) {
-                console.log("Device logged in");
-            } else if (reason === DisconnectReason.restartRequired) {
-                console.log("Restart required, restarting...");
-                startBot();
-            } else if (reason === DisconnectReason.timedOut) {
-                console.log("Connection Timedout, reconnecting....");
-                startBot();
-            } else {
-                conn.end(`Unknown DisconnectReason: ${reason}|${lastDisconnect.error}`);
-            }
-        } else if (connection === 'open') {
-            console.log('Bot connected!');
-            // Start quiz interval if a group JID is loaded
-            if (quizModule.quizEnabledGroupJid) {
-                quizModule.startQuizInterval(conn, quizModule.quizEnabledGroupJid);
-            }
-        }
-    })
-    
-    conn.ev.on('messages.upsert', async (chatUpdate) => {
-        // chatUpdate.messages යනු ලැබුණු messages array එකයි
-        for (let mek of chatUpdate.messages) {
-            // *** START: මෙතැනට පහත පේළි 2 පමණක් එකතු කරන්න ***
-            // *** for loop එක ඇතුලත, පළමු පේළි කිහිපය අතරට මෙය දමන්න ***
-            
-            // Quiz module එකේ handleIncomingMessage function එක කැඳවීම
-            if (quizModule && quizModule.handleIncomingMessage) {
-                await quizModule.handleIncomingMessage(conn, mek);
-            }
-
-            // *** END: මෙතැනින් ඉහළට පමණයි වෙනස්කම් ***
-
-            if (!mek.message) return;
-            if (mek.key.remoteJid === 'status@broadcast') return;
-            if (mek.key.id.startsWith('BAE5') && mek.key.id.length === 16) return; // Baileys internal messages
-            
-            // --- ඔබගේ දැනට පවතින message handling logic මෙතැන් සිට ආරම්භ වේ ---
-            const { type, quotedMsg, mentionedJid, now, fromMe } = m; // m object එක කොහෙන්ද එන්නේ? 
-                                                                     // සාමාන්‍යයෙන් mek object එකෙන් variables extract කරනවා
-                                                                     // උදා: const type = getContentType(mek.message)
-            const body = (type === "container" && quotedMsg.type == "btns" && quotedMsg.body) ? quotedMsg.body : (type === "container" && quotedMsg.type == "image" && quotedMsg.body) ? quotedMsg.body : (type === "container" && quotedMsg.type == "video" && quotedMsg.body) ? quotedMsg.body : (type === "container" && quotedMsg.type == "document" && quotedMsg.body) ? quotedMsg.body : (type === "container" && quotedMsg.type == "vcard" && quotedMsg.body) ? quotedMsg.body : (type === "container" && mek.message.imageMessage && mek.message.imageMessage.caption) ? mek.message.imageMessage.caption : (type === "container" && mek.message.videoMessage && mek.message.videoMessage.caption) ? mek.message.videoMessage.caption : (type === "container" && mek.message.documentMessage && mek.message.documentMessage.caption) ? mek.message.documentMessage.caption : (type === "container" && mek.message.extendedTextMessage && mek.message.extendedTextMessage.text) ? mek.message.extendedTextMessage.text : (mek.message.listResponseMessage && mek.message.listResponseMessage.singleSelectReply.selectedRowId) ? mek.message.listResponseMessage.singleSelectReply.selectedRowId : (mek.message.buttonsResponseMessage && mek.message.buttonsResponseMessage.selectedButtonId) ? mek.message.buttonsResponseMessage.selectedButtonId : (mek.message.templateButtonReplyMessage && mek.message.templateButtonReplyMessage.selectedId) ? mek.message.templateButtonReplyMessage.selectedId : (mek.message.text) ? mek.message.text : ""
-            const args = body.trim().split(/ +/).slice(1);
-            const isCmd = body.startsWith(prefix);
-            const command = isCmd ? body.slice(prefix.length).trim().split(/ +/).shift().toLowerCase() : "";
-
-            const from = mek.key.remoteJid;
-            const isGroup = from.endsWith('@g.us');
-            const sender = mek.key.fromMe ? (conn.user.id.includes(':') ? conn.user.id.split(':')[0] + '@s.whatsapp.net' : conn.user.id) : (mek.key.participant || from);
-            const senderNumber = sender.split('@')[0];
-            const botNumber = conn.user.id.includes(':') ? conn.user.id.split(':')[0] : conn.user.id.split('@')[0];
-            const groupMetadata = isGroup ? await conn.groupMetadata(from).catch(e => {}) : '';
-            const groupMembers = isGroup ? groupMetadata.participants : '';
-            const groupAdmins = isGroup ? getGroupAdmins(groupMembers) : '';
-            const isBotAdmin = groupAdmins.includes(botNumber + '@s.whatsapp.net') || false;
-            const isGroupAdmins = groupAdmins.includes(sender) || false;
-            const isOwner = ownerNumber.includes(senderNumber) || false;
-
-            const m = {
-                quoted: quoted, // quotedMsg object එකත් මෙතනට එන්න ඕන
-                mentionedJid: mentionedJid,
-                now: now,
-                fromMe: fromMe,
-                from: from,
-                isGroup: isGroup,
-                sender: sender,
-                isOwner: isOwner,
-                isBotAdmin: isBotAdmin,
-                isGroupAdmins: isGroupAdmins,
-                senderNumber: senderNumber,
-                botNumber: botNumber,
-                groupMetadata: groupMetadata,
-                groupMembers: groupMembers,
-                groupAdmins: groupAdmins,
-                body: body,
-                args: args,
-                isCmd: isCmd,
-                command: command
-            };
-
-            if (isCmd) {
-                const commandHandler = Commands.get(command); // Commands map එක define කරලා තියෙනවා නම්
-                if (commandHandler) {
-                    await commandHandler.execute(conn, mek, m, {
-                        from, isGroup, reply: (text) => conn.sendMessage(from, { text }, { quoted: mek }), isOwner, groupMetadata,
-                        // ... (අනෙකුත් අවශ්‍ය පරාමිති)
-                    });
-                } else {
-                    // Command not found
-                    if (body.startsWith(prefix) && body.length > prefix.length) {
-                        await conn.sendMessage(from, { text: `⚠️ Command එකක් නැහැ! '${command}' 🤷` }, { quoted: mek });
-                    }
-                }
-            }
-        }
-    })
-    // ... (අනෙකුත් conn.ev.on handlers) ...
-}
-
-startBot()
+  const ownerNumber = ['94781536595']
+  
+  const tempDir = path.join(os.tmpdir(), 'cache-temp')
+  if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir)
+  }
+  
+  const clearTempDir = () => {
+      fs.readdir(tempDir, (err, files) => {
+          if (err) throw err;
+          for (const file of files) {
+              fs.unlink(path.join(tempDir, file), err => {
+                  if (err) throw err;
+              });
+          }
+      });
+  }
   
   // Clear the temp directory every 5 minutes
   setInterval(clearTempDir, 5 * 60 * 1000);
