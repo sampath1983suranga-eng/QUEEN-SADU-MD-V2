@@ -129,21 +129,23 @@ async function sendQuizQuestion(conn, jid) {
 }
 
 
-// .startmrdai Command (පැයෙන් පැයට Quiz එක ආරම්භ කිරීමට)
+// .startmrdai Command (පැයෙන් පැයට Quiz එක ආරම්භ කිරීමට) - දැන් ඕනෑම කෙනෙකුට භාවිතා කළ හැක
 cmd({
     pattern: "startmrdai",
     react: "✅",
     desc: "Start MR D AI quiz in this group (hourly).",
     category: "quiz",
     use: '.startmrdai',
-    filename: __filename
+    filename: __filename,
+    // isOwner: false, // Owner check එක ඉවත් කර ඇත
+    // isAdmim: false, // Admin check එක ඉවත් කර ඇත (මේවා සාමාන්‍යයෙන් cmd function එකේ arguments වලින් පාලනය වේ)
 },
-async(conn, mek, m,{from, isGroup, reply, isOwner, groupMetadata}) => {
+async(conn, mek, m,{from, isGroup, reply}) => { // isOwner remove කර ඇත
     // Global connection object එක set කරන්න
     global.currentConn = conn; 
 
     if (!isGroup) return reply("❌ *මෙම command එක Groups වලට පමණක් භාවිතා කළ හැක!*");
-    if (!isOwner) return reply("❌ *මෙම command එක භාවිතා කළ හැක්කේ Bot Owner ට පමණි!*");
+    // isOwner / isAdmin check ඉවත් කර ඇත - දැන් ඕනෑම කෙනෙකුට භාවිතා කළ හැක
 
     if (quizEnabledGroupJid === from) {
         return reply("✅ *Quiz එක දැනටමත් මෙම Group එකේ සක්‍රීයයි!*");
@@ -152,7 +154,18 @@ async(conn, mek, m,{from, isGroup, reply, isOwner, groupMetadata}) => {
     quizEnabledGroupJid = from;
     saveQuizState(); 
 
-    reply(`✅ *MR D AI Quiz එක "${groupMetadata.subject}" Group එකේ ආරම්භ කරන ලදී. සෑම පැයකට වරක්ම ප්‍රශ්නයක් එවනු ලැබේ.*`);
+    // Group metadata ලබා ගැනීමට උත්සාහ කිරීම
+    let groupName = "මෙම Group එකේ"; 
+    try {
+        const metadata = await conn.groupMetadata(from);
+        if (metadata && metadata.subject) {
+            groupName = `"${metadata.subject}" Group එකේ`;
+        }
+    } catch (e) {
+        console.error("Error fetching group metadata in quiz.js (startmrdai):", e.message);
+    }
+
+    reply(`✅ *MR D AI Quiz එක ${groupName} ආරම්භ කරන ලදී. සෑම පැයකට වරක්ම ප්‍රශ්නයක් එවනු ලැබේ.*`);
     
     // වහාම පළමු ප්‍රශ්නය යවන්න, පසුව interval එක ආරම්භ කරන්න
     await sendQuizQuestion(conn, from);
@@ -160,18 +173,20 @@ async(conn, mek, m,{from, isGroup, reply, isOwner, groupMetadata}) => {
 });
 
 
-// .stopmrdai Command (Quiz එක නැවැත්වීමට)
+// .stopmrdai Command (Quiz එක නැවැත්වීමට) - දැන් ඕනෑම කෙනෙකුට භාවිතා කළ හැක
 cmd({
     pattern: "stopmrdai",
     react: "❌",
     desc: "Stop MR D AI quiz in this group.",
     category: "quiz",
     use: '.stopmrdai',
-    filename: __filename
+    filename: __filename,
+    // isOwner: false, // Owner check එක ඉවත් කර ඇත
+    // isAdmim: false, // Admin check එක ඉවත් කර ඇත
 },
-async(conn, mek, m,{from, isGroup, reply, isOwner}) => {
+async(conn, mek, m,{from, isGroup, reply}) => { // isOwner remove කර ඇත
     if (!isGroup) return reply("❌ *මෙම command එක Groups වලට පමණක් භාවිතා කළ හැක!*");
-    if (!isOwner) return reply("❌ *මෙම command එක භාවිතා කළ හැක්කේ Bot Owner ට පමණි!*");
+    // isOwner / isAdmin check ඉවත් කර ඇත - දැන් ඕනෑම කෙනෙකුට භාවිතා කළ හැක
 
     if (quizEnabledGroupJid !== from) {
         return reply("❌ *Quiz එක දැනටමත් මෙම Group එකේ සක්‍රීය නැත!*");
@@ -190,7 +205,7 @@ async(conn, mek, m,{from, isGroup, reply, isOwner}) => {
     reply("🛑 *MR D AI Quiz එක නවත්වන ලදී.*");
 });
 
-// .getmrdai Command (එසැණින් ප්‍රශ්නයක් ලබා ගැනීමට)
+// .getmrdai Command (එසැණින් ප්‍රශ්නයක් ලබා ගැනීමට) - දැන් ඕනෑම කෙනෙකුට භාවිතා කළ හැක
 cmd({
     pattern: "getmrdai",
     react: "💡",
@@ -199,7 +214,7 @@ cmd({
     use: '.getmrdai',
     filename: __filename
 },
-async(conn, mek, m,{from, isGroup, reply}) => {
+async(conn, mek, m,{from, isGroup, reply}) => { 
     // Global connection object එක set කරන්න
     global.currentConn = conn;
 
@@ -220,96 +235,104 @@ setTimeout(() => {
     const connInstance = global.currentConn || global.client;
     if (connInstance && !connInstance._quizMessageUpsertHandlerRegistered) {
         console.log("Registering quiz message upsert handler...");
-        connInstance.ev.on('messages.upsert', async ({ messages }) => {
-            for (let i = 0; i < messages.length; i++) {
-                const mek = messages[i];
-                // Ignore messages from the bot itself or status messages
-                if (mek.key.fromMe || mek.key.remoteJid === 'status@broadcast') continue;
+        
+        // Ensure that there is an existing 'ev' event emitter from Baileys
+        if (connInstance.ev) {
+            connInstance.ev.on('messages.upsert', async ({ messages }) => {
+                for (let i = 0; i < messages.length; i++) {
+                    const mek = messages[i];
+                    // Ignore messages from the bot itself or status messages
+                    if (mek.key.fromMe || mek.key.remoteJid === 'status@broadcast') continue;
 
-                const from = mek.key.remoteJid;
-                const isGroup = from && from.endsWith('@g.us');
+                    const from = mek.key.remoteJid;
+                    const isGroup = from && from.endsWith('@g.us');
 
-                // Only process if it's a group message and quiz is active in this group
-                if (isGroup && quizEnabledGroupJid === from && currentQuizQuestionIndex !== -1) {
-                    const sender = mek.key.participant || from; // For group messages, participant is the sender
-                    
-                    // Check if the participant has already answered this question
-                    if (answeredParticipants.has(sender)) {
-                        // console.log(`Participant ${sender} has already answered for this quiz question. Ignoring.`);
-                        continue; // Already answered, ignore duplicate
-                    }
-
-                    const questionData = quizQuestions[currentQuizQuestionIndex];
-                    if (!questionData || typeof questionData.answer_index === 'undefined') {
-                        console.error("Invalid question data for current quiz question index:", currentQuizQuestionIndex);
-                        continue;
-                    }
-
-                    const correctAnswerIndex = questionData.answer_index;
-                    const correctAnswerLetter = String.fromCharCode(65 + correctAnswerIndex); // "A", "B", "C", "D", "E" වැනි
-
-                    const messageType = getContentType(mek.message);
-                    let userAnswerText = '';
-                    
-                    if (messageType === 'extendedTextMessage') {
-                        userAnswerText = mek.message.extendedTextMessage.text;
-                    } else if (messageType === 'text') {
-                        userAnswerText = mek.message.text;
-                    } else {
-                        continue; // Ignore non-text messages for quiz answers
-                    }
-                    
-                    // User's answer, trimmed and converted to uppercase for case-insensitive comparison
-                    const userAnswer = userAnswerText.trim().toUpperCase();
-
-                    // Get the bot prefix (if available) to avoid responding to commands as answers
-                    const botPrefix = global.config?.PREFIX || '!'; 
-                    if (userAnswer.startsWith(botPrefix)) {
-                        // It's likely a command, ignore for quiz answer
-                        continue;
-                    }
-
-                    if (userAnswer === correctAnswerLetter) {
-                        // Correct Answer
-                        const userName = await connInstance.getName(sender);
-                        const explanationText = quizExplanations[correctAnswerLetter] || "ඔබගේ පිළිතුර නිවැරදියි!";
+                    // Only process if it's a group message and quiz is active in this group
+                    if (isGroup && quizEnabledGroupJid === from && currentQuizQuestionIndex !== -1) {
+                        const sender = mek.key.participant || from; 
                         
-                        const replyMessage = `🎉 *${userName}*, ඔබගේ පිළිතුර නිවැරදියි! ${explanationText}`;
-
-                        // Make sure activeQuizQuestionMessageId and activeQuizQuestionJid are valid before quoting
-                        if (activeQuizQuestionMessageId && activeQuizQuestionJid === from) {
-                            await connInstance.sendMessage(from, { text: replyMessage }, { 
-                                quoted: { 
-                                    key: { remoteJid: from, id: activeQuizQuestionMessageId, fromMe: false }, // fromMe: false is important for correct quoting
-                                    message: { conversation: questionData.question } // Quoted message is the original question
-                                } 
-                            });
-                        } else {
-                            await connInstance.sendMessage(from, { text: replyMessage });
+                        // Check if the participant has already answered this question
+                        if (answeredParticipants.has(sender)) {
+                            // console.log(`Participant ${sender} has already answered for this quiz question. Ignoring.`);
+                            continue; // Already answered, ignore duplicate
                         }
 
-                        answeredParticipants.add(sender);
-                        console.log(`Correct answer from ${userName} (${sender}). Answered: ${userAnswer}, Correct: ${correctAnswerLetter}. Explanation: ${explanationText}`);
-                    } else {
-                        // Incorrect Answer - Do nothing as per your earlier requirement to only reply to correct answers.
-                        // If you want to log, you can uncomment this:
-                        // console.log(`Incorrect answer from ${sender}. Answered: ${userAnswer}, Correct: ${correctAnswerLetter}`);
+                        const questionData = quizQuestions[currentQuizQuestionIndex];
+                        if (!questionData || typeof questionData.answer_index === 'undefined') {
+                            console.error("Invalid question data for current quiz question index:", currentQuizQuestionIndex);
+                            continue;
+                        }
+
+                        const correctAnswerIndex = questionData.answer_index;
+                        const correctAnswerLetter = String.fromCharCode(65 + correctAnswerIndex); // "A", "B", "C", "D", "E" වැනි
+
+                        const messageType = getContentType(mek.message);
+                        let userAnswerText = '';
+                        
+                        if (messageType === 'extendedTextMessage') {
+                            userAnswerText = mek.message.extendedTextMessage.text;
+                        } else if (messageType === 'text') {
+                            userAnswerText = mek.message.text;
+                        } else {
+                            continue; // Ignore non-text messages for quiz answers
+                        }
+                        
+                        // User's answer, trimmed and converted to uppercase for case-insensitive comparison
+                        const userAnswer = userAnswerText.trim().toUpperCase();
+
+                        // Get the bot prefix (if available) to avoid responding to commands as answers
+                        const botPrefix = global.config?.PREFIX || '!'; 
+                        if (userAnswer.startsWith(botPrefix)) {
+                            // It's likely a command, ignore for quiz answer
+                            continue;
+                        }
+
+                        if (userAnswer === correctAnswerLetter) {
+                            // Correct Answer
+                            const userName = await connInstance.getName(sender);
+                            const explanationText = quizExplanations[correctAnswerLetter] || "ඔබගේ පිළිතුර නිවැරදියි!";
+                            
+                            const replyMessage = `🎉 *${userName}*, ඔබගේ පිළිතුර නිවැරදියි! ${explanationText}`;
+
+                            // Make sure activeQuizQuestionMessageId and activeQuizQuestionJid are valid before quoting
+                            if (activeQuizQuestionMessageId && activeQuizQuestionJid === from) {
+                                await connInstance.sendMessage(from, { text: replyMessage }, { 
+                                    quoted: { 
+                                        key: { remoteJid: from, id: activeQuizQuestionMessageId, fromMe: false }, 
+                                        message: { conversation: questionData.question } 
+                                    } 
+                                });
+                            } else {
+                                await connInstance.sendMessage(from, { text: replyMessage });
+                            }
+
+                            answeredParticipants.add(sender);
+                            console.log(`Correct answer from ${userName} (${sender}). Answered: ${userAnswer}, Correct: ${correctAnswerLetter}. Explanation: ${explanationText}`);
+                        } else {
+                            // Incorrect Answer - Do nothing (as per previous requirement to only reply to correct answers).
+                            // If you want to reply to incorrect answers, uncomment and modify below:
+                            // const userName = await connInstance.getName(sender);
+                            // await connInstance.sendMessage(from, { text: `Sorry ${userName}, that's incorrect.` });
+                            // console.log(`Incorrect answer from ${sender}. Answered: ${userAnswer}, Correct: ${correctAnswerLetter}`);
+                        }
                     }
                 }
+            });
+            connInstance._quizMessageUpsertHandlerRegistered = true; // Mark as registered to avoid multiple registrations
+            
+            // Also try to restart interval on bot start if quiz was enabled
+            if (quizEnabledGroupJid) {
+                console.log(`Attempting to restart quiz interval for ${quizEnabledGroupJid} on bot start.`);
+                startQuizInterval(connInstance, quizEnabledGroupJid);
             }
-        });
-        connInstance._quizMessageUpsertHandlerRegistered = true; // Mark as registered to avoid multiple registrations
-        
-        // Also try to restart interval on bot start if quiz was enabled
-        if (connInstance && quizEnabledGroupJid) {
-            console.log(`Attempting to restart quiz interval for ${quizEnabledGroupJid} on bot start.`);
-            startQuizInterval(connInstance, quizEnabledGroupJid);
+        } else {
+            console.error("Connection instance does not have an 'ev' event emitter. Cannot register messages.upsert handler.");
         }
 
     } else if (connInstance && connInstance._quizMessageUpsertHandlerRegistered) {
         console.log("Quiz message upsert handler already registered.");
     } else {
-        console.log("No connection instance (global.currentConn or global.client) found to register quiz upsert handler.");
+        console.log("No connection instance (global.currentConn or global.client) found to register quiz upsert handler or it's not ready yet.");
     }
 }, 15000); // තත්පර 15කට පසුව උත්සාහ කරන්න, bot connection stable වීමට සහ global.currentConn / global.client set වීමට.
 
