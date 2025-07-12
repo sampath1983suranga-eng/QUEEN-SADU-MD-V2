@@ -42,8 +42,7 @@ const {
   const Crypto = require('crypto')
   const path = require('path')
   const prefix = config.PREFIX
-const quizModule = require('./commands/quiz'); 
-global.currentConn = null; 
+
   
   const ownerNumber = ['94781536595']
   
