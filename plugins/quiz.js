@@ -1,36 +1,27 @@
-const { cmd } = require('../command');
 const fs = require('fs').promises; // Asynchronous file operations
 const path = require('path'); // For resolving file paths
 
-// Define paths to your JSON files relative to this file
+// Define path to your quiz questions JSON file
 const QUIZ_QUESTIONS_PATH = path.join(__dirname, '../data/quiz_questions.json');
-const QUIZ_ANSWERS_PATH = path.join(__dirname, '../data/quiz_answers.json');
 
 // --- Global variables for quiz state ---
 // To store all quiz questions from quiz_questions.json
 let quizQuestions = []; 
-// To store all quiz answers descriptions from quiz_answers.json
-let quizAnswersDescriptions = {}; 
 // Map to store current quiz state for each group/chat
-// Key: chat ID (e.g., groupId), Value: { currentQuestion: {}, answeredUsers: new Set(), correctAnswer: '' }
+// We only need to know if a quiz is active to prevent starting another.
+// Key: chat ID (e.g., groupId), Value: boolean (true if active)
 const activeQuizzes = new Map(); 
 
-// --- Function to load quiz data from JSON files ---
+// --- Function to load quiz data from JSON file ---
 async function loadQuizData() {
     try {
         const questionsData = await fs.readFile(QUIZ_QUESTIONS_PATH, 'utf8');
         quizQuestions = JSON.parse(questionsData);
         console.log(`Loaded ${quizQuestions.length} quiz questions.`);
-
-        const answersData = await fs.readFile(QUIZ_ANSWERS_PATH, 'utf8');
-        quizAnswersDescriptions = JSON.parse(answersData);
-        console.log(`Loaded ${Object.keys(quizAnswersDescriptions).length} quiz answer descriptions.`);
     } catch (error) {
         console.error('Error loading quiz data:', error);
-        // If files are not found or malformed, the bot might not start quiz correctly
         quizQuestions = []; // Reset to empty to prevent errors
-        quizAnswersDescriptions = {};
-        throw new Error('Failed to load quiz data. Check JSON files and paths.');
+        throw new Error('Failed to load quiz data. Check quiz_questions.json file and path.');
     }
 }
 
@@ -56,13 +47,14 @@ module.exports = {
         // --- .startmrdai command logic ---
         if (command === '.startmrdai') {
             // Check if there's an active quiz in this chat
-            await client.sendMessage(chatId, { text: 'දැනටමත් Quiz එකක් ක්‍රියාත්මකයි. නව Quiz එකක් ආරම්භ කිරීමට පෙර '.stopmrdai' විධානය භාවිතා කරන්න.' });
+            if (activeQuizzes.has(chatId)) {
+                await client.sendMessage(chatId, { text: `දැනටමත් Quiz එකක් ක්‍රියාත්මකයි. නව Quiz එකක් ආරම්භ කිරීමට පෙර '.stopmrdai' විධානය භාවිතා කරන්න.` });
                 return;
             }
 
             // Ensure we have questions loaded
             if (quizQuestions.length === 0) {
-                await client.sendMessage(chatId, { text: 'මට දැනට ප්‍රශ්න පටවා ගැනීමට නොහැක. කරුණාකර JSON ගොනු පරීක්ෂා කරන්න.' });
+                await client.sendMessage(chatId, { text: 'මට දැනට ප්‍රශ්න පටවා ගැනීමට නොහැක. කරුණාකර quiz_questions.json ගොනුව පරීක්ෂා කරන්න.' });
                 return;
             }
 
@@ -70,12 +62,8 @@ module.exports = {
             const randomIndex = Math.floor(Math.random() * quizQuestions.length);
             const question = quizQuestions[randomIndex];
 
-            // Initialize quiz state for this chat
-            activeQuizzes.set(chatId, {
-                currentQuestion: question,
-                answeredUsers: new Set(), // To track who answered to prevent multiple tries for same question
-                correctAnswer: question.answer.toLowerCase()
-            });
+            // Set quiz as active for this chat (no need for detailed state as we're not checking answers)
+            activeQuizzes.set(chatId, true); 
 
             // Format question message
             let questionMessage = `*Mr.DAI Quiz Time! 🧠*\n\n`;
@@ -84,7 +72,9 @@ module.exports = {
             question.options.forEach((option, index) => {
                 questionMessage += `${index + 1}. ${option}\n`;
             });
-            questionMessage += `\nපිළිතුර සෘජුවම (උදා: ${question.options[0]}) ටයිප් කරන්න.`;
+            // We no longer prompt for an answer as we're not checking it.
+            questionMessage += `\nපිළිතුරු දන්නේ නම්, ඔබට ඊළඟ ප්‍රශ්නය සඳහා '.startmrdai' ලෙස ටයිප් කළ හැක, නැතහොත් Quiz එක නැවැත්වීමට '.stopmrdai' ලෙස ටයිප් කරන්න.`;
+
 
             await client.sendMessage(chatId, { text: questionMessage });
 
@@ -99,43 +89,7 @@ module.exports = {
             }
         }
     },
-    // --- Message Listener for Answers ---
-    // This part handles incoming messages that are NOT commands, to check for answers
-    // This is called for every incoming message in index.js, so we need to filter
-    async handleMessage({ client, message, body, isGroup, sender }) {
-        const chatId = message.key.remoteJid;
-
-        // Only process if there's an active quiz in this group and it's not a command
-        if (isGroup && activeQuizzes.has(chatId) && !body.startsWith('.')) {
-            const quizState = activeQuizzes.get(chatId);
-            const { currentQuestion, answeredUsers, correctAnswer } = quizState;
-
-            // Prevent users from answering multiple times for the same question
-            if (answeredUsers.has(sender)) {
-                // await client.sendMessage(chatId, { text: 'ඔබ මෙම ප්‍රශ්නයට දැනටමත් පිළිතුරු දී ඇත.' }, { quoted: message }); // Optional: inform user
-                return; 
-            }
-
-            const receivedAnswer = body.toLowerCase().trim();
-
-            // Check if the received answer matches the correct answer (case-insensitive, trimmed)
-            if (receivedAnswer === correctAnswer) {
-                const answerDescription = quizAnswersDescriptions[currentQuestion.answer] || 'පිළිතුර සඳහා විස්තරයක් නොමැත.';
-                
-                let replyMessage = `*නිවැරදි පිළිතුරයි!* 🎉\n`;
-                replyMessage += `*පිළිතුර:* ${currentQuestion.answer}\n\n`;
-                replyMessage += `*විස්තරය:* ${answerDescription}\n\n`;
-                replyMessage += `ඊළඟ ප්‍රශ්නය සඳහා '.startmrdai' ටයිප් කරන්න, නැතහොත් Quiz එක නැවැත්වීමට '.stopmrdai' ටයිප් කරන්න.`;
-                
-                await client.sendMessage(chatId, { text: replyMessage }, { quoted: message });
-                
-                // End the current quiz for this group so a new one can be started
-                activeQuizzes.delete(chatId); 
-            } else {
-                // Mark user as having attempted this question to prevent spamming answers
-                answeredUsers.add(sender); 
-                await client.sendMessage(chatId, { text: 'වැරදි පිළිතුරයි! නැවත උත්සාහ කරන්න.' }, { quoted: message });
-            }
-        }
-    }
+    // --- handleMessage function removed ---
+    // Since we are not checking answers, this function is no longer needed.
+    // Make sure your index.js also doesn't try to call handleMessage for this plugin.
 };
