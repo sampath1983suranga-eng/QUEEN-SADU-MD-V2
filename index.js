@@ -309,33 +309,18 @@ if (!isReact && senderNumber === botNumber) {
   }
   }
   }
-  events.commands.map(async(command) => {
-  if (body && command.on === "body") {
-    // groupMetadata තිබේ නම් පමණක් group-related variables ලබා ගන්න
-    let groupParticipants = [];
-    let groupAdmins = [];
-    let isBotAdmins = false;
-    let isAdmins = false;
-
-    if (isGroup && groupMetadata) {
-        groupParticipants = groupMetadata.participants || [];
-        groupAdmins = groupParticipants.filter(v => v.admin !== null).map(v => v.id);
-        isBotAdmins = groupAdmins.includes(botNumber2) || false; // botNumber2 should be the bot's JID in admin format
-        isAdmins = groupAdmins.includes(sender) || false; // sender should be the user's JID in admin format
-    }
-
-    command.function(conn, mek, m,{
-        from, l, quoted, body, isCmd, command, args, q, text, isGroup, 
-        sender, senderNumber, botNumber2, botNumber, pushname, isMe, 
-        isOwner, isCreator, groupMetadata, groupName, 
-        // අලුතින් define කල variables මෙහිදී pass කරන්න
-        participants: groupParticipants, 
-        groupAdmins, 
-        isBotAdmins, 
-        isAdmins, 
-        reply
-    })
-  } else if (mek.q && command.on === "text") {
+  command.function(conn, mek, m,{
+    from, l, quoted, body, isCmd, command, args, q, text, isGroup,
+    sender, senderNumber, botNumber2, botNumber, pushname, isMe,
+    isOwner, isCreator, groupMetadata, groupName,
+    // Add these lines to define and pass the group-related variables correctly
+    participants: isGroup && groupMetadata ? groupMetadata.participants || [] : [],
+    groupAdmins: isGroup && groupMetadata ? groupMetadata.participants.filter(v => v.admin !== null).map(v => v.id) : [],
+    isBotAdmins: isGroup && groupMetadata ? (groupMetadata.participants.filter(v => v.admin !== null).map(v => v.id)).includes(conn.user.id.includes(':') ? conn.user.id.split(':')[0] + '@s.whatsapp.net' : conn.user.id) : false,
+    isAdmins: isGroup && groupMetadata ? (groupMetadata.participants.filter(v => v.admin !== null).map(v => v.id)).includes(sender) : false,
+    reply
+  })
+   } else if (mek.q && command.on === "text") {
   command.function(conn, mek, m,{from, l, quoted, body, isCmd, command, args, q, text, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isOwner, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply})
   } else if (
   (command.on === "image" || command.on === "photo") &&
