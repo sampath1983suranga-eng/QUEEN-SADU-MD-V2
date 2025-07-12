@@ -1,3 +1,4 @@
+const { cmd } = require('../command');
 const fs = require('fs').promises; // Asynchronous file operations
 const path = require('path'); // For resolving file paths
 
