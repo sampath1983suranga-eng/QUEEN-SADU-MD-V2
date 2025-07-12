@@ -71,12 +71,11 @@ function startQuizInterval(conn, jid) {
         console.log(`Cleared existing quiz interval for ${jid}`);
     }
     quizIntervalId = setInterval(async () => {
-        // global.currentConn හෝ global.client භාවිතයෙන් conn object එක ලබා ගැනීමට උත්සාහ කරන්න
         const activeConn = global.currentConn || global.client; 
         if (activeConn && quizEnabledGroupJid) {
             await sendQuizQuestion(activeConn, quizEnabledGroupJid);
         } else {
-            console.warn("No active connection object (global.currentConn or global.client) found or quiz not enabled for any group to send next question. Stopping interval.");
+            console.warn("No active connection object found or quiz not enabled for any group. Stopping interval.");
             if (quizIntervalId) {
                 clearInterval(quizIntervalId);
                 quizIntervalId = null;
@@ -87,19 +86,7 @@ function startQuizInterval(conn, jid) {
 }
 
 // Bot ආරම්භ වන විට state එක load කරන්න.
-// මෙමගින් Bot restarted වන විටත් Quiz active ව තිබූ group එක හඳුනාගනී.
 loadQuizState(); 
-
-// Bot ආරම්භ වන විට interval එකද ආරම්භ කිරීමට උත්සාහ කරන්න.
-// මෙය ක්‍රියාත්මක වන්නේ Bot ආරම්භයේදී global.currentConn / global.client already set වී ඇත්නම් පමණි.
-setTimeout(() => {
-    const initialConn = global.currentConn || global.client;
-    if (initialConn && quizEnabledGroupJid) {
-        console.log(`Attempting to restart quiz interval for ${quizEnabledGroupJid} on bot start.`);
-        startQuizInterval(initialConn, quizEnabledGroupJid);
-    }
-}, 10000); // තත්පර 10කට පසුව උත්සාහ කරන්න, bot connection stable වීමට කාලය ලබා දීමට.
-
 
 // --- Helper Functions ---
 
@@ -152,8 +139,7 @@ cmd({
     filename: __filename
 },
 async(conn, mek, m,{from, isGroup, reply, isOwner, groupMetadata}) => {
-    // conn object එක global context එකෙන් සකස් කරන්න
-    // මෙයින් ඔබගේ bot එකේ main file එකේ conn object එක global variable එකකට assign කර ඇත්නම් පමණක් මෙය සාර්ථක වේ
+    // Global connection object එක set කරන්න
     global.currentConn = conn; 
 
     if (!isGroup) return reply("❌ *මෙම command එක Groups වලට පමණක් භාවිතා කළ හැක!*");
@@ -214,7 +200,7 @@ cmd({
     filename: __filename
 },
 async(conn, mek, m,{from, isGroup, reply}) => {
-    // conn object එක global context එකෙන් සකස් කරන්න
+    // Global connection object එක set කරන්න
     global.currentConn = conn;
 
     if (!isGroup) return reply("❌ *මෙම command එක Groups වලට පමණක් භාවිතා කළ හැක!*");
@@ -225,140 +211,109 @@ async(conn, mek, m,{from, isGroup, reply}) => {
     }
 });
 
+// --- Baileys messages.upsert event listener එක Quiz module එක තුළින්ම register කිරීම ---
+// මෙය `index.js` වෙනස් නොකර, සියලු incoming messages වලට react කිරීමට උත්සාහ කරන "hack" එකයි.
+// 'conn' object එක global.currentConn හෝ global.client ලෙස තිබිය යුතුයි.
 
-// --- Incoming Message Handler (ලැබෙන messages handle කිරීම) ---
-// මෙම function එක ලැබෙන සියලු messages handle කරයි
-// මෙය command handler එකට පෙර ක්‍රියාත්මක විය යුතුය.
-// (index.js වෙනස් නොකරන නිසා, මෙය command handler එකෙන් message එක process කිරීමට පෙර ක්‍රියාත්මක වීමට ඉඩක් නැත.
-// එබැවින්, මෙම logic එක command handler එක තුළම හෝ වෙනත් ප්‍රවේශයක් මගින් ක්‍රියාත්මක විය යුතුය.)
+// Bot එක start වන විට මෙම listener එක register කිරීමට උත්සාහ කරන්න.
+setTimeout(() => {
+    const connInstance = global.currentConn || global.client;
+    if (connInstance && !connInstance._quizMessageUpsertHandlerRegistered) {
+        console.log("Registering quiz message upsert handler...");
+        connInstance.ev.on('messages.upsert', async ({ messages }) => {
+            for (let i = 0; i < messages.length; i++) {
+                const mek = messages[i];
+                // Ignore messages from the bot itself or status messages
+                if (mek.key.fromMe || mek.key.remoteJid === 'status@broadcast') continue;
 
-// මෙම කොටස Quiz Plugin එකේ cmd handler එකටම message එක පැමිණේ යැයි උපකල්පනය කරයි.
-// එනම්, මෙම කෝඩ් කොටස Baileys හි ev.on('messages.upsert') handler එකට සෘජුව සම්බන්ධ නොවේ.
-// සාමාන්‍යයෙන්, Bot frameworks වලදී, සියලු messages එක් තැනකට (main handler) ලැබී,
-// පසුව ඒවා commands හෝ අනෙකුත් plugin logic වලට යොමු කෙරේ.
+                const from = mek.key.remoteJid;
+                const isGroup = from && from.endsWith('@g.us');
 
-// මේ ගැටළුවට විසඳුම: ඔබගේ Bot framework එකේ message handler එකට quiz.js වෙතින් function එකක් කැඳවීමට හැකි නම්
-// (උදා: cmd function එකෙන් පසුව හෝ වෙනම handler එකකින්), එය අංක 1 ක්‍රමයයි.
-// එසේ නොමැති නම්, මෙම plugin එකටම command නොවන messages හසුරුවන්නට සිදුවේ.
-// දැනට පවතින විදියට, cmd function එකෙන් ලැබෙන 'mek' object එකෙන් මෙම handleIncomingMessage logic එක අනුකරණය කරමු.
+                // Only process if it's a group message and quiz is active in this group
+                if (isGroup && quizEnabledGroupJid === from && currentQuizQuestionIndex !== -1) {
+                    const sender = mek.key.participant || from; // For group messages, participant is the sender
+                    
+                    // Check if the participant has already answered this question
+                    if (answeredParticipants.has(sender)) {
+                        // console.log(`Participant ${sender} has already answered for this quiz question. Ignoring.`);
+                        continue; // Already answered, ignore duplicate
+                    }
 
-// ප්‍රධාන cmd handler එක මගින් ලැබෙන messages හැසිරවීමට:
-// cmd function එකේ async(conn, mek, m, {from, isGroup, reply, isOwner, groupMetadata})
-// parameters භාවිතා කරමින්, සෑම message එකක්ම මෙම logic එක හරහා යවමු.
+                    const questionData = quizQuestions[currentQuizQuestionIndex];
+                    if (!questionData || typeof questionData.answer_index === 'undefined') {
+                        console.error("Invalid question data for current quiz question index:", currentQuizQuestionIndex);
+                        continue;
+                    }
 
-// ඔබගේ command handler (cmd function එක) තුලින්ම message process කිරීමට.
-// මෙය ඔබගේ `command.js` ගොනුවේ ඇති `cmd` function එකේ ක්‍රියාත්මක වන ආකාරය මත රඳා පවතී.
-// `cmd` function එකට ලැබෙන සෑම message එකක්ම (command එකක් වුවත් නොවුණත්)
-// `handleIncomingMessage` function එකට යොමු කළ යුතුය.
+                    const correctAnswerIndex = questionData.answer_index;
+                    const correctAnswerLetter = String.fromCharCode(65 + correctAnswerIndex); // "A", "B", "C", "D", "E" වැනි
 
-// Alternative: If your bot's core `cmd` handler passes ALL messages to all registered `cmd` patterns
-// then we can just make a general pattern.
-// However, this is usually not how `cmd` works - it's for specific patterns only.
+                    const messageType = getContentType(mek.message);
+                    let userAnswerText = '';
+                    
+                    if (messageType === 'extendedTextMessage') {
+                        userAnswerText = mek.message.extendedTextMessage.text;
+                    } else if (messageType === 'text') {
+                        userAnswerText = mek.message.text;
+                    } else {
+                        continue; // Ignore non-text messages for quiz answers
+                    }
+                    
+                    // User's answer, trimmed and converted to uppercase for case-insensitive comparison
+                    const userAnswer = userAnswerText.trim().toUpperCase();
 
-// Given the constraint of *no changes to index.js*, we need a way for quiz.js
-// to react to all incoming messages, not just its own commands.
-// The best way to do this *without modifying index.js* is often not directly possible
-// with simple plugin architectures that don't provide a global message hook.
+                    // Get the bot prefix (if available) to avoid responding to commands as answers
+                    const botPrefix = global.config?.PREFIX || '!'; 
+                    if (userAnswer.startsWith(botPrefix)) {
+                        // It's likely a command, ignore for quiz answer
+                        continue;
+                    }
 
-// For now, I will assume that the 'cmd' framework you're using *might*
-// allow a generic pattern, or that you're willing to accept that only
-// messages *directed at a command* (even if not quiz command) might be processed
-// by handleIncomingMessage if it's called from within a cmd handler.
-// This is a significant limitation if handleIncomingMessage is not globally invoked.
+                    if (userAnswer === correctAnswerLetter) {
+                        // Correct Answer
+                        const userName = await connInstance.getName(sender);
+                        const explanationText = quizExplanations[correctAnswerLetter] || "ඔබගේ පිළිතුර නිවැරදියි!";
+                        
+                        const replyMessage = `🎉 *${userName}*, ඔබගේ පිළිතුර නිවැරදියි! ${explanationText}`;
 
-// *** The most robust solution without touching index.js is to have a "listener" pattern. ***
-// Let's create a listener that runs on all messages. This assumes your 'cmd' module
-// allows a wildcard pattern or a global listener. If not, this will not work.
+                        // Make sure activeQuizQuestionMessageId and activeQuizQuestionJid are valid before quoting
+                        if (activeQuizQuestionMessageId && activeQuizQuestionJid === from) {
+                            await connInstance.sendMessage(from, { text: replyMessage }, { 
+                                quoted: { 
+                                    key: { remoteJid: from, id: activeQuizQuestionMessageId, fromMe: false }, // fromMe: false is important for correct quoting
+                                    message: { conversation: questionData.question } // Quoted message is the original question
+                                } 
+                            });
+                        } else {
+                            await connInstance.sendMessage(from, { text: replyMessage });
+                        }
 
-// Dummy handler to catch all messages and pass to quiz logic.
-// This is a workaround if index.js cannot be touched.
-// It assumes your `cmd` handler processes ALL incoming messages before matching patterns.
-// If your `cmd` only triggers on actual patterns, this will NOT work for quiz answers.
-
-cmd({
-    pattern: ".*", // Wildcard pattern to try and catch all messages
-    dontReact: true, // Don't react to every message
-    noLimit: true, // No command limit for this
-    // This is a low-priority command to run after other specific commands.
-    // If your `cmd` framework has a way to run a handler on ALL messages,
-    // that would be better. This is a hack.
-    filename: __filename 
-},
-async(conn, mek, m,{from, isGroup, reply, isOwner, groupMetadata}) => {
-    // Ensure this only runs if it's not a command from THIS quiz plugin itself
-    const botPrefix = global.config?.PREFIX || '!';
-    const body = m.body; // Assuming m.body contains the message text
-    const isThisQuizCommand = body.startsWith(botPrefix + "startmrdai") || 
-                              body.startsWith(botPrefix + "stopmrdai") ||
-                              body.startsWith(botPrefix + "getmrdai");
-
-    // Only process if it's not a command and quiz is active in this group
-    if (isGroup && quizEnabledGroupJid === from && currentQuizQuestionIndex !== -1 && !isThisQuizCommand) {
-        const sender = mek.key.fromMe ? (conn.user.id.includes(':') ? conn.user.id.split(':')[0] + '@s.whatsapp.net' : conn.user.id) : (mek.key.participant || from);
-        
-        // Check if the participant has already answered this question
-        if (answeredParticipants.has(sender)) {
-            console.log(`Participant ${sender} has already answered for this quiz question. Ignoring.`);
-            return; // Already answered, ignore duplicate
-        }
-
-        const questionData = quizQuestions[currentQuizQuestionIndex];
-        // Check if questionData is valid to prevent errors
-        if (!questionData || typeof questionData.answer_index === 'undefined') {
-            console.error("Invalid question data for current quiz question index:", currentQuizQuestionIndex);
-            return;
-        }
-
-        const correctAnswerIndex = questionData.answer_index;
-        const correctAnswerLetter = String.fromCharCode(65 + correctAnswerIndex); // "A", "B", "C", "D", "E" වැනි
-
-        const messageType = getContentType(mek.message);
-        let userAnswerText = '';
-        
-        if (messageType === 'extendedTextMessage') {
-            userAnswerText = mek.message.extendedTextMessage.text;
-        } else if (messageType === 'text') {
-            userAnswerText = mek.message.text;
-        }
-        
-        // User's answer, trimmed and converted to uppercase for case-insensitive comparison
-        const userAnswer = userAnswerText.trim().toUpperCase();
-
-        if (userAnswer === correctAnswerLetter) {
-            // Correct Answer
-            const userName = await conn.getName(sender);
-            // quizExplanations object එකෙන් නිවැරදි පිළිතුරට අදාළ පැහැදිලි කිරීම ලබා ගැනීම
-            const explanationText = quizExplanations[correctAnswerLetter] || "ඔබගේ පිළිතුර නිවැරදියි!";
-            
-            // Reply message එක "User Name, ඔබගේ පිළිතුර නිවැරදියි! [Explanation]" format එකට සකස් කිරීම
-            const replyMessage = `🎉 *${userName}*, ඔබගේ පිළිතුර නිවැරදියි! ${explanationText}`;
-
-            // Make sure activeQuizQuestionMessageId and activeQuizQuestionJid are valid before quoting
-            if (activeQuizQuestionMessageId && activeQuizQuestionJid === from) {
-                await conn.sendMessage(from, { text: replyMessage }, { 
-                    quoted: { 
-                        key: { remoteJid: from, id: activeQuizQuestionMessageId }, 
-                        message: { conversation: questionData.question } // Quoted message is the original question
-                    } 
-                });
-            } else {
-                // If for some reason we lost the message ID, send without quoting
-                await conn.sendMessage(from, { text: replyMessage });
+                        answeredParticipants.add(sender);
+                        console.log(`Correct answer from ${userName} (${sender}). Answered: ${userAnswer}, Correct: ${correctAnswerLetter}. Explanation: ${explanationText}`);
+                    } else {
+                        // Incorrect Answer - Do nothing as per your earlier requirement to only reply to correct answers.
+                        // If you want to log, you can uncomment this:
+                        // console.log(`Incorrect answer from ${sender}. Answered: ${userAnswer}, Correct: ${correctAnswerLetter}`);
+                    }
+                }
             }
-
-            // Add participant to the set of answered participants for this question
-            answeredParticipants.add(sender);
-            console.log(`Correct answer from ${userName} (${sender}). Explanation: ${explanationText}`);
-        } else {
-            // Incorrect Answer - no reply needed for incorrect answers as per current requirement
-            console.log(`Incorrect answer from ${sender}. Answered: ${userAnswer}, Correct: ${correctAnswerLetter}`);
+        });
+        connInstance._quizMessageUpsertHandlerRegistered = true; // Mark as registered to avoid multiple registrations
+        
+        // Also try to restart interval on bot start if quiz was enabled
+        if (connInstance && quizEnabledGroupJid) {
+            console.log(`Attempting to restart quiz interval for ${quizEnabledGroupJid} on bot start.`);
+            startQuizInterval(connInstance, quizEnabledGroupJid);
         }
+
+    } else if (connInstance && connInstance._quizMessageUpsertHandlerRegistered) {
+        console.log("Quiz message upsert handler already registered.");
+    } else {
+        console.log("No connection instance (global.currentConn or global.client) found to register quiz upsert handler.");
     }
-});
+}, 15000); // තත්පර 15කට පසුව උත්සාහ කරන්න, bot connection stable වීමට සහ global.currentConn / global.client set වීමට.
 
-
-// Quiz module එක export කරන්න, ප්‍රධාන Bot file එකට අවශ්‍ය variables සහ functions
-// (මේවා දැන් ප්‍රධාන වශයෙන් අභ්‍යන්තරව භාවිතා වේ, නමුත් අනාගත ප්‍රයෝජන සඳහා තබා ඇත)
+// Quiz module එක export කරන්න
 module.exports = {
     quizEnabledGroupJid,
     quizIntervalId,
@@ -368,5 +323,4 @@ module.exports = {
     activeQuizQuestionMessageId,
     loadQuizState, 
     startQuizInterval,
-    // handleIncomingMessage - This is now integrated into the wildcard cmd handler
 };
