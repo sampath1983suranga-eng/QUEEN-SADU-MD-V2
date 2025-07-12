@@ -1,5 +1,4 @@
-  
-  const {
+const {
   default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason,
@@ -26,7 +25,6 @@
   const l = console.log
   const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions')
   const { AntiDelDB, initializeAntiDeleteSettings, setAnti, getAnti, getAllAntiDeleteSettings, saveContact, loadMessage, getName, getChatSummary, saveGroupMetadata, getGroupMetadata, saveMessageCount, getInactiveGroupMembers, getGroupMembersMessageCount, saveMessage } = require('./data')
-  
   const fs = require('fs')
   const ff = require('fluent-ffmpeg')
   const P = require('pino')
@@ -44,11 +42,6 @@
   const Crypto = require('crypto')
   const path = require('path')
   const prefix = config.PREFIX
-  
-  // --- Quiz System සඳහා අලුතින් එකතු කරන ලද පේළි ---
-  const quizModule = require('./commands/quiz'); // Quiz plugin එක require කිරීම
-  global.currentConn = null; // Quiz module එකට connection object එක ලබා දීමට
-  // ----------------------------------------------------
   
   const ownerNumber = ['94781536595']
   
