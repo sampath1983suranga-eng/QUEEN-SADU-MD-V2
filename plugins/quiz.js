@@ -16,7 +16,7 @@ try {
     // data ෆෝල්ඩරය plugins ෆෝල්ඩරයට එක මට්ටමක් ඉහළින් පිහිටා ඇත.
     // __dirname is the directory of the current file (plugins folder).
     // The data folder is located one level above the plugins folder.
-    const questionsFilePath = path.join(__dirname, '../data', 'questions.json');
+    const questionsFilePath = path.join(__dirname, '../data', 'quiz_questions.json');
     const rawData = fs.readFileSync(questionsFilePath, 'utf8');
     questionsData = JSON.parse(rawData);
     console.log("ප්‍රශ්න දත්ත සාර්ථකව පූරණය කරන ලදී."); // Log successful loading.
