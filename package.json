@@ -2,10 +2,9 @@
   "name": "QUEEN-SADU-MD",
   "version": "3.0.0",
   "description": "A WhatsApp Bot Created By ᴍʀ ᴅɪɴᴇꜱʜ ᴏꜰᴄ",
-  "main": "app.js",  // මෙය index.js වෙනුවට app.js ලෙස වෙනස් කර ඇත.
+  "main": "app.js",  
   "scripts": {
-    "start": "node app.js" // pm2 වෙනුවට සරලව node app.js ලෙස වෙනස් කර ඇත.
-  },
+    "start": "node app.js" },
   "dependencies": {
     "@whiskeysockets/baileys": "npm:baileys-pro@latest",
     "@adiwajshing/keyed-db": "^0.2.4",
