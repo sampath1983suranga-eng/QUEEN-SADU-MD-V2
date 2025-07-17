@@ -1,7 +1,17 @@
-FROM node:lts-buster
-RUN git clone https://github.com/MRDofc/QUEEN-SADU-MD-V2
-WORKDIR /MRDofc/QUEEN-SADU-MD-V2
-RUN npm install && npm install -g pm2 || yarn install --network-concurrency 1
-COPY . .
-EXPOSE 9090
-CMD ["npm", "start"]
+FROM node:18
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Copy only what's necessary first (for faster rebuilds)
+COPY ./ikJawad/package*.json ./ 
+
+# Install dependencies
+RUN npm install -g pm2
+RUN npm install
+
+# Copy the rest of your application
+COPY ./ikJawad .
+
+# Start the bot
+CMD ["pm2-runtime", "index.js"]
