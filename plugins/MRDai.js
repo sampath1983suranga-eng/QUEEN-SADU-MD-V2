@@ -36,13 +36,13 @@ async (conn, mek, m, { from, args, q, reply }) => {
         // The Vercel API response structure is data.success and data.geminiResponse.data
         if (!data || !data.success || !data.geminiResponse || !data.geminiResponse.data) {
             await conn.sendMessage(from, { react: { text: "❌", key: mek.key } });
-            return reply("OpenAI ප්‍රතිචාර දැක්වීමට අපොහොසත් විය. කරුණාකර පසුව නැවත උත්සාහ කරන්න.");
+            return reply("MRD AI ප්‍රතිචාර දැක්වීමට අපොහොසත් විය. කරුණාකර පසුව නැවත උත්සාහ කරන්න.");
         }
 
         // AI ප්‍රතිචාරය පරිශීලකයාට යවන්න.
         // Send the AI response to the user.
         const aiResponse = data.geminiResponse.data;
-        await reply(`🧠 *OpenAI ප්‍රතිචාරය:*\n\n${aiResponse}`);
+        await reply(`🧠 *MRD AI ප්‍රතිචාරය:*\n\n${aiResponse}`);
         await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
 
     } catch (e) {
